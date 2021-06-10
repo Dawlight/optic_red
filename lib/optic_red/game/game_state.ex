@@ -123,12 +123,6 @@ defmodule OpticRed.GameState do
 
   # DECPIPHER PHASE
 
-  defp do_submit_attempt(%{rounds: rounds, lead_team: lead_team} = data, team, attempt) do
-    [current_round | _] = rounds
-    current_round = put_in(current_round[team].attempts[lead_team], attempt)
-    data = update_in(data.rounds, &List.replace_at(&1, 0, current_round))
-  end
-
   @impl :gen_statem
   def handle_event(
         {:call, from},
@@ -139,50 +133,26 @@ defmodule OpticRed.GameState do
     data = do_submit_attempt(data, team, attempt)
     [current_round | _] = data.rounds
 
-    all_submitted_attempts =
-      Enum.map(current_round, fn {team, _} -> current_round[team].attempts[data.lead_team] end)
-
-    have_all_teams_submitted? = nil not in all_submitted_attempts
-
-    case have_all_teams_submitted? do
+    case have_all_teams_submitted?(data) do
       false ->
-        IO.inspect("Not all teams have submitted their attempts!")
-        Logger.debug("Not all teams have submitted their attempt!")
         {:keep_state, data, {:reply, from, {:ok, data}}}
 
       true ->
-        # Set new lead team
-        {next_lead_team, next_lead_team_index} = get_next_lead_team(data.teams, data.lead_team)
-        data = put_in(data.lead_team, next_lead_team)
+        data = set_next_lead_team(data)
 
-        case next_lead_team_index do
-          # Next lead team is the starting lead team. End of phase!
-          0 ->
-            Logger.debug("That's all! Next!")
-            IO.inspect("That's all! Next!")
+        case have_all_teams_been_lead?(data) do
+          true ->
+            data = update_score(data)
 
-            round_score = get_round_score(data.teams, current_round)
-
-            total_score = Map.merge(data.score, round_score, fn _, x, y -> x + y end)
-
-            data = put_in(data.score, total_score)
-
-            has_any_team_won? = Enum.any?(Map.values(data.score), fn score -> score >= 1 end)
-
-            case has_any_team_won? do
+            case has_any_team_won?(data) do
               true ->
-                IO.inspect("Game end!")
                 {:next_state, :game_end, data, {:reply, from, {:ok, data}}}
 
               false ->
-                IO.inspect("New round")
                 {:next_state, :encipher, data, {:reply, from, {:ok, data}}}
             end
 
-          _ ->
-            # Next lead team is just some team. New decipher round!
-            Logger.debug("It's time to decipher #{next_lead_team}'s code")
-            IO.inspect("It's time to decipher #{next_lead_team}'s code")
+          false ->
             {:next_state, :decipher, data, {:reply, from, {:ok, data}}}
         end
     end
@@ -196,6 +166,43 @@ defmodule OpticRed.GameState do
   @impl :gen_statem
   def handle_event({:call, from}, {:get_current_round}, _, data) do
     {:keep_state_and_data, {:reply, from, {:ok, List.first(data.rounds)}}}
+  end
+
+  defp do_submit_attempt(%{rounds: rounds, lead_team: lead_team} = data, team, attempt) do
+    [current_round | _] = rounds
+    current_round = put_in(current_round[team].attempts[lead_team], attempt)
+    data = update_in(data.rounds, &List.replace_at(&1, 0, current_round))
+  end
+
+  defp have_all_teams_submitted?(data) do
+    [current_round | _] = data.rounds
+
+    all_submitted_attempts =
+      Enum.map(current_round, fn {team, _} -> current_round[team].attempts[data.lead_team] end)
+
+    have_all_teams_submitted? = nil not in all_submitted_attempts
+  end
+
+  defp set_next_lead_team(data) do
+    {next_lead_team, next_lead_team_index} = get_next_lead_team(data.teams, data.lead_team)
+    data = put_in(data.lead_team, next_lead_team)
+  end
+
+  defp have_all_teams_been_lead?(data) do
+    next_lead_team = data.lead_team
+    first_lead_team = List.first(data.teams)
+    have_all_teams_been_lead? = next_lead_team == first_lead_team
+  end
+
+  defp update_score(data) do
+    [current_round | _] = data.rounds
+    round_score = get_round_score(data.teams, current_round)
+    total_score = Map.merge(data.score, round_score, fn _, x, y -> x + y end)
+    put_in(data.score, total_score)
+  end
+
+  defp has_any_team_won?(data) do
+    Enum.any?(Map.values(data.score), fn score -> score >= 1 end)
   end
 
   defp get_round_score(teams, round) do
