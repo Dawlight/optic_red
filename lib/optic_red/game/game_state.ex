@@ -123,23 +123,24 @@ defmodule OpticRed.GameState do
 
   # DECPIPHER PHASE
 
+  defp do_submit_attempt(%{rounds: rounds, lead_team: lead_team} = data, team, attempt) do
+    [current_round | _] = rounds
+    current_round = put_in(current_round[team].attempts[lead_team], attempt)
+    data = update_in(data.rounds, &List.replace_at(&1, 0, current_round))
+  end
+
   @impl :gen_statem
   def handle_event(
         {:call, from},
         {:submit_attempt, team, attempt},
         :decipher,
-        %{rounds: rounds, lead_team: lead_team, teams: teams} = data
+        data
       ) do
-    IO.inspect("Attempt")
-    IO.inspect(team)
-    IO.inspect(attempt)
-    # IO.inspect("Team #{team} submitted attempt: #{attempt}")
-    [current_round | _] = rounds
-    current_round = put_in(current_round[team].attempts[lead_team], attempt)
-    data = update_in(data.rounds, &List.replace_at(&1, 0, current_round))
+    data = do_submit_attempt(data, team, attempt)
+    [current_round | _] = data.rounds
 
     all_submitted_attempts =
-      Enum.map(current_round, fn {team, _} -> current_round[team].attempts[lead_team] end)
+      Enum.map(current_round, fn {team, _} -> current_round[team].attempts[data.lead_team] end)
 
     have_all_teams_submitted? = nil not in all_submitted_attempts
 
@@ -150,10 +151,8 @@ defmodule OpticRed.GameState do
         {:keep_state, data, {:reply, from, {:ok, data}}}
 
       true ->
-        IO.inspect("All teams have submitted their attempt at team #{lead_team}'s code!")
-        Logger.debug("All teams have submitted their attempt at team #{lead_team}'s code!")
         # Set new lead team
-        {next_lead_team, next_lead_team_index} = get_next_lead_team(teams, lead_team)
+        {next_lead_team, next_lead_team_index} = get_next_lead_team(data.teams, data.lead_team)
         data = put_in(data.lead_team, next_lead_team)
 
         case next_lead_team_index do
@@ -162,8 +161,7 @@ defmodule OpticRed.GameState do
             Logger.debug("That's all! Next!")
             IO.inspect("That's all! Next!")
 
-            round_score =
-              get_round_score(teams, current_round) |> IO.inspect(label: "Round score")
+            round_score = get_round_score(data.teams, current_round)
 
             total_score = Map.merge(data.score, round_score, fn _, x, y -> x + y end)
 
