@@ -128,31 +128,34 @@ defmodule OpticRed.GameState do
         {:call, from},
         {:submit_attempt, team, attempt},
         :decipher,
-        data
+        state
       ) do
-    data = do_submit_attempt(data, team, attempt)
+    state = do_submit_attempt(state, team, attempt)
 
-    case have_all_teams_submitted?(data) do
+    case have_all_teams_submitted?(state) do
       false ->
-        {:keep_state, data, {:reply, from, {:ok, data}}}
+        {:keep_state, state, {:reply, from, {:ok, state}}}
 
       true ->
-        data = set_next_lead_team(data)
+        next_lead_team = get_next_lead_team(state)
 
-        case have_all_teams_been_lead?(data) do
+        case have_all_teams_been_lead?(state) do
           true ->
-            data = update_score(data)
+            state = update_score(state)
 
-            case has_any_team_won?(data) do
+            case has_any_team_won?(state) do
               true ->
-                {:next_state, :game_end, data, {:reply, from, {:ok, data}}}
+                state = %{state | lead_team: next_lead_team}
+                {:next_state, :game_end, state, {:reply, from, {:ok, state}}}
 
               false ->
-                {:next_state, :encipher, data, {:reply, from, {:ok, data}}}
+                state = %{state | lead_team: next_lead_team}
+                {:next_state, :encipher, state, {:reply, from, {:ok, state}}}
             end
 
           false ->
-            {:next_state, :decipher, data, {:reply, from, {:ok, data}}}
+            state = %{state | lead_team: next_lead_team}
+            {:next_state, :decipher, state, {:reply, from, {:ok, state}}}
         end
     end
   end
@@ -170,7 +173,7 @@ defmodule OpticRed.GameState do
   defp do_submit_attempt(%{rounds: rounds, lead_team: lead_team} = data, team, attempt) do
     [current_round | _] = rounds
     current_round = put_in(current_round[team].attempts[lead_team], attempt)
-    data = update_in(data.rounds, &List.replace_at(&1, 0, current_round))
+    update_in(data.rounds, &List.replace_at(&1, 0, current_round))
   end
 
   defp have_all_teams_submitted?(data) do
@@ -179,18 +182,13 @@ defmodule OpticRed.GameState do
     all_submitted_attempts =
       Enum.map(current_round, fn {team, _} -> current_round[team].attempts[data.lead_team] end)
 
-    have_all_teams_submitted? = nil not in all_submitted_attempts
-  end
-
-  defp set_next_lead_team(data) do
-    next_lead_team = get_next_lead_team(data.teams, data.lead_team)
-    data = put_in(data.lead_team, next_lead_team)
+    nil not in all_submitted_attempts
   end
 
   defp have_all_teams_been_lead?(data) do
-    next_lead_team = data.lead_team
+    next_lead_team = get_next_lead_team(data)
     first_lead_team = List.first(data.teams)
-    have_all_teams_been_lead? = next_lead_team == first_lead_team
+    next_lead_team == first_lead_team
   end
 
   defp update_score(data) do
@@ -230,10 +228,10 @@ defmodule OpticRed.GameState do
     end
   end
 
-  defp get_next_lead_team(teams, current_lead_team) do
-    current_lead_team = Enum.find_index(teams, fn team -> current_lead_team === team end)
-    next_lead_team_index = rem(current_lead_team + 1, length(teams))
-    Enum.at(teams, next_lead_team_index)
+  defp get_next_lead_team(data) do
+    lead_team_index = Enum.find_index(data.teams, fn team -> team == data.lead_team end)
+    next_lead_team_index = rem(lead_team_index + 1, length(data.teams))
+    Enum.at(data.teams, next_lead_team_index)
   end
 
   # GAME END
