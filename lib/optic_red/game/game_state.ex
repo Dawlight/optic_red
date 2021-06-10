@@ -131,7 +131,6 @@ defmodule OpticRed.GameState do
         data
       ) do
     data = do_submit_attempt(data, team, attempt)
-    [current_round | _] = data.rounds
 
     case have_all_teams_submitted?(data) do
       false ->
@@ -184,7 +183,7 @@ defmodule OpticRed.GameState do
   end
 
   defp set_next_lead_team(data) do
-    {next_lead_team, next_lead_team_index} = get_next_lead_team(data.teams, data.lead_team)
+    next_lead_team = get_next_lead_team(data.teams, data.lead_team)
     data = put_in(data.lead_team, next_lead_team)
   end
 
@@ -234,8 +233,7 @@ defmodule OpticRed.GameState do
   defp get_next_lead_team(teams, current_lead_team) do
     current_lead_team = Enum.find_index(teams, fn team -> current_lead_team === team end)
     next_lead_team_index = rem(current_lead_team + 1, length(teams))
-    next_lead_team = Enum.at(teams, next_lead_team_index)
-    {next_lead_team, next_lead_team_index}
+    Enum.at(teams, next_lead_team_index)
   end
 
   # GAME END
