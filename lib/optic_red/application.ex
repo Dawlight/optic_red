@@ -14,9 +14,10 @@ defmodule OpticRed.Application do
       # Start the PubSub system
       {Phoenix.PubSub, name: OpticRed.PubSub},
       # Start the Endpoint (http/https)
-      OpticRedWeb.Endpoint
+      OpticRedWeb.Endpoint,
       # Start a worker by calling: OpticRed.Worker.start_link(arg)
       # {OpticRed.Worker, arg}
+      OpticRed.GameSupervisor
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

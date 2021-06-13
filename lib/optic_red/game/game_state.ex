@@ -8,17 +8,22 @@ defmodule OpticRed.GameState do
   ##
 
   def start_link(%{game_id: game_id, teams: teams}) do
+    IO.inspect("STARTING #{__MODULE__}")
     initial_lead_team = List.first(teams)
     score = Map.new(Enum.map(teams, fn team -> {team, 0} end))
+    words = create_team_words(teams)
 
-    args = %{
-      initial_data: %{
-        rounds: [],
-        teams: teams,
-        lead_team: initial_lead_team,
-        score: score
+    args =
+      %{
+        initial_data: %{
+          rounds: [],
+          teams: teams,
+          lead_team: initial_lead_team,
+          score: score,
+          words: words
+        }
       }
-    }
+      |> IO.inspect(label: "NEW GAME")
 
     name = get_game_id_name(game_id)
     :gen_statem.start_link({:via, :gproc, name}, __MODULE__, args, [])
@@ -38,10 +43,17 @@ defmodule OpticRed.GameState do
     end
   end
 
-  def get_game_state(game_id) do
+  def get_game_data(game_id) do
     case :gproc.where(get_game_id_name(game_id)) do
       :underfined -> {:error, :game_not_found}
-      pid -> :gen_statem.call(pid, {:get_game_state})
+      pid -> :gen_statem.call(pid, {:get_game_data})
+    end
+  end
+
+  def get_current_state(game_id) do
+    case :gproc.where(get_game_id_name(game_id)) do
+      :underfined -> {:error, :game_not_found}
+      pid -> :gen_statem.call(pid, {:get_current_state})
     end
   end
 
@@ -55,6 +67,13 @@ defmodule OpticRed.GameState do
   ##
   ## CALLBACKS
   ##
+
+  def child_spec(options) do
+    %{
+      id: __MODULE__,
+      start: {__MODULE__, :start_link, [options]}
+    }
+  end
 
   @impl :gen_statem
   def init(%{initial_data: initial_data}) do
@@ -97,26 +116,18 @@ defmodule OpticRed.GameState do
   def handle_event(
         {:call, from},
         {:submit_clues, team, clues},
-        :encipher,
+        :encipher = state,
         %{rounds: rounds, teams: teams} = data
       ) do
-    Logger.debug("Team #{team} submitted clues: #{clues}")
-    IO.inspect("Team #{team} submitted clues: #{clues}")
     [current_round | _] = rounds
     current_round = put_in(current_round[team].clues, clues)
     data = update_in(data.rounds, &List.replace_at(&1, 0, current_round))
 
-    reply = {:reply, from, {:ok, data}}
+    reply = {:reply, from, {:ok, state, data}}
 
     if Enum.any?(teams, fn team -> current_round[team].clues == nil end) do
-      Logger.debug("Not all teams have submtited their clues for this round!")
-      IO.inspect("Not all teams have submtited their clues for this round!")
       {:keep_state, data, reply}
     else
-      Logger.debug("All teams have submitted their clues for this round!")
-      IO.inspect("All teams have submitted their clues for this round!")
-
-      # All teams have submitted clues for the current round
       {:next_state, :decipher, data, reply}
     end
   end
@@ -127,47 +138,52 @@ defmodule OpticRed.GameState do
   def handle_event(
         {:call, from},
         {:submit_attempt, team, attempt},
-        :decipher,
-        state
+        :decipher = state,
+        data
       ) do
-    state = do_submit_attempt(state, team, attempt)
+    data = do_submit_attempt(data, team, attempt)
 
-    case have_all_teams_submitted?(state) do
+    case have_all_teams_submitted?(data) do
       false ->
-        {:keep_state, state, {:reply, from, {:ok, state}}}
+        {:keep_state, data, {:reply, from, {:ok, state, data}}}
 
       true ->
-        next_lead_team = get_next_lead_team(state)
+        next_lead_team = get_next_lead_team(data)
 
-        case have_all_teams_been_lead?(state) do
+        case have_all_teams_been_lead?(data) do
           true ->
-            state = update_score(state)
+            data = update_score(data)
 
-            case has_any_team_won?(state) do
+            case has_any_team_won?(data) do
               true ->
-                state = %{state | lead_team: next_lead_team}
-                {:next_state, :game_end, state, {:reply, from, {:ok, state}}}
+                data = %{data | lead_team: next_lead_team}
+                {:next_state, :game_end, data, {:reply, from, {:ok, state, data}}}
 
               false ->
-                state = %{state | lead_team: next_lead_team}
-                {:next_state, :encipher, state, {:reply, from, {:ok, state}}}
+                data = %{data | lead_team: next_lead_team}
+                {:next_state, :encipher, data, {:reply, from, {:ok, state, data}}}
             end
 
           false ->
-            state = %{state | lead_team: next_lead_team}
-            {:next_state, :decipher, state, {:reply, from, {:ok, state}}}
+            data = %{data | lead_team: next_lead_team}
+            {:next_state, :decipher, data, {:reply, from, {:ok, state, data}}}
         end
     end
   end
 
   @impl :gen_statem
-  def handle_event({:call, from}, {:get_game_state}, _, data) do
+  def handle_event({:call, from}, {:get_game_data}, _, data) do
     {:keep_state_and_data, {:reply, from, {:ok, data}}}
   end
 
   @impl :gen_statem
   def handle_event({:call, from}, {:get_current_round}, _, data) do
     {:keep_state_and_data, {:reply, from, {:ok, List.first(data.rounds)}}}
+  end
+
+  @impl :gen_statem
+  def handle_event({:call, from}, {:get_game_state}, state, _data) do
+    {:keep_state_and_data, {:reply, from, {:ok, state}}}
   end
 
   defp do_submit_attempt(%{rounds: rounds, lead_team: lead_team} = data, team, attempt) do
@@ -240,14 +256,26 @@ defmodule OpticRed.GameState do
   ## Private functions
   ##
 
+  @words ~w{cat tractor house tree love luck money table floor christmas orange}
+
   defp create_empty_round(teams) do
     Enum.reduce(teams, %{}, fn team, team_map ->
       Map.put(team_map, team, create_team_map(teams))
     end)
   end
 
+  defp create_team_words(teams) do
+    words = Enum.shuffle(@words)
+    word_lists = Enum.chunk_every(words, 4)
+    Map.new(Enum.zip([teams, word_lists]))
+  end
+
   defp create_team_map(teams) do
-    %{code: Enum.take_random(1..4, 3), clues: nil, attempts: create_attempts_map(teams)}
+    %{
+      code: Enum.take_random(1..4, 3),
+      clues: nil,
+      attempts: create_attempts_map(teams)
+    }
   end
 
   defp create_attempts_map(teams) do
@@ -255,7 +283,7 @@ defmodule OpticRed.GameState do
   end
 
   def get_game_id_name(game_id) do
-    {:n, :l, {:game_id, game_id}}
+    {:n, :l, {:game_state, game_id}}
   end
 
   def get_random_code() do
