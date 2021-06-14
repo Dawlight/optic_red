@@ -1,23 +1,26 @@
 defmodule OpticRed.GameSupervisor do
-  use DynamicSupervisor
+  use Supervisor
 
-  def start_link(args) do
-    DynamicSupervisor.start_link(__MODULE__, args, name: __MODULE__)
+  @spec start_link(%{:game_id => any, optional(any) => any}) ::
+          :ignore | {:error, any} | {:ok, pid}
+  def start_link(%{game_id: game_id} = args) do
+    IO.inspect("STARTING!")
+    name = get_game_id_name(game_id)
+    Supervisor.start_link(__MODULE__, args, name: {:via, :gproc, name})
   end
 
-  def start_game(args) do
-    spec = %{
-      id: OpticRed.Game,
-      start: {OpticRed.Game, :start_link, [args]},
-      restart: :temporary,
-      modules: :dynamic
-    }
+  @impl Supervisor
+  def init(args) do
+    children = [
+      {OpticRed.GameState, args}
+      # {OpticRed.GameCoordinator, [args]}
+    ]
 
-    DynamicSupervisor.start_child(__MODULE__, spec)
+    IO.inspect("CONTINUING #{__MODULE__}")
+    Supervisor.init(children, strategy: :rest_for_one)
   end
 
-  @impl DynamicSupervisor
-  def init(_args) do
-    DynamicSupervisor.init(strategy: :one_for_one)
+  defp get_game_id_name(game_id) do
+    {:n, :l, {:game_state_supervisor, game_id}}
   end
 end

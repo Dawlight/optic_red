@@ -1,3 +1,3 @@
-# defmodule OpticRed.GameCoordinator do
-#   use GenServer
-# end
+defmodule OpticRed.GameCoordinator do
+  use GenServer
+end

@@ -16,7 +16,7 @@ config :optic_red, OpticRedWeb.Endpoint,
   secret_key_base: "5xOnZTWzGwNit3dZ82Ok3Znjt0XdYFINwgvRuuhF423rAYifueITbBrBlJc8rI54",
   render_errors: [view: OpticRedWeb.ErrorView, accepts: ~w(html json), layout: false],
   pubsub_server: OpticRed.PubSub,
-  live_view: [signing_salt: "OZ3Hpclp"]
+  live_view: [signing_salt: "++3OCpTrtm4NeEjy+wnJ4kQfdrocwIav"]
 
 # Configures Elixir's Logger
 config :logger, :console,

@@ -51,7 +51,7 @@ defmodule OpticRedWeb.Endpoint do
   plug Plug.Head
   plug Plug.Session, @session_options
   plug OpticRedWeb.Router
-  plug :introspect
+  # plug :introspect
 
   def introspect(conn, _opts) do
     IO.puts("""
