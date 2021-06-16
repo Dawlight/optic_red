@@ -1,8 +1,6 @@
-defmodule OpticRed.GameSupervisor do
+defmodule OpticRed.Game.Supervisor do
   use Supervisor
 
-  @spec start_link(%{:game_id => any, optional(any) => any}) ::
-          :ignore | {:error, any} | {:ok, pid}
   def start_link(%{game_id: game_id} = args) do
     IO.inspect("STARTING!")
     name = get_game_id_name(game_id)
@@ -11,12 +9,13 @@ defmodule OpticRed.GameSupervisor do
 
   @impl Supervisor
   def init(args) do
+    game_state_args = %{game_id: _, teams: _} = args
+
     children = [
-      {OpticRed.GameState, args}
+      {OpticRed.Game.State, game_state_args}
       # {OpticRed.GameCoordinator, [args]}
     ]
 
-    IO.inspect("CONTINUING #{__MODULE__}")
     Supervisor.init(children, strategy: :rest_for_one)
   end
 

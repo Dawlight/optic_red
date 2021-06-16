@@ -23,6 +23,7 @@ defmodule OpticRedWeb do
 
       import Plug.Conn
       import OpticRedWeb.Gettext
+      import Phoenix.LiveView.Helpers
       alias OpticRedWeb.Router.Helpers, as: Routes
     end
   end

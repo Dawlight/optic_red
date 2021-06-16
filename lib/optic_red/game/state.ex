@@ -1,4 +1,4 @@
-defmodule OpticRed.GameState do
+defmodule OpticRed.Game.State do
   @behaviour :gen_statem
 
   require Logger
@@ -8,22 +8,21 @@ defmodule OpticRed.GameState do
   ##
 
   def start_link(%{game_id: game_id, teams: teams}) do
-    IO.inspect("STARTING #{__MODULE__}")
+    players = Enum.map(teams, fn team -> {team, []} end)
     initial_lead_team = List.first(teams)
     score = Map.new(Enum.map(teams, fn team -> {team, 0} end))
     words = create_team_words(teams)
 
-    args =
-      %{
-        initial_data: %{
-          rounds: [],
-          teams: teams,
-          lead_team: initial_lead_team,
-          score: score,
-          words: words
-        }
+    args = %{
+      initial_data: %{
+        rounds: [],
+        teams: teams,
+        lead_team: initial_lead_team,
+        players: players,
+        score: score,
+        words: words
       }
-      |> IO.inspect(label: "NEW GAME")
+    }
 
     name = get_game_id_name(game_id)
     :gen_statem.start_link({:via, :gproc, name}, __MODULE__, args, [])

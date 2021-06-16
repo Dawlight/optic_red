@@ -1,4 +1,4 @@
-defmodule OpticRed.GameSessionSupervisor do
+defmodule OpticRed.Game.GamesSupervisor do
   use DynamicSupervisor
 
   def start_link(args) do
@@ -7,8 +7,8 @@ defmodule OpticRed.GameSessionSupervisor do
 
   def start_game(args) do
     spec = %{
-      id: OpticRed.Game,
-      start: {OpticRed.Game, :start_link, [args]},
+      id: OpticRed.Game.Supervisor,
+      start: {OpticRed.Game.Supervisor, :start_link, [args]},
       restart: :temporary,
       modules: :dynamic
     }

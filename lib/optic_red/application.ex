@@ -17,7 +17,7 @@ defmodule OpticRed.Application do
       OpticRedWeb.Endpoint,
       # Start a worker by calling: OpticRed.Worker.start_link(arg)
       # {OpticRed.Worker, arg}
-      OpticRed.GameSessionSupervisor
+      OpticRed.Game.GamesSupervisor
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
