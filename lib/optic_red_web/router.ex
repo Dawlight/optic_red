@@ -11,7 +11,7 @@ defmodule OpticRedWeb.Router do
     plug :put_root_layout, {OpticRedWeb.LayoutView, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
-    plug OpticRedWeb.Plugs.UserId
+    plug OpticRedWeb.Plugs.PlayerId
     plug OpticRedWeb.Plugs.Locale, "en"
   end
 
@@ -23,7 +23,7 @@ defmodule OpticRedWeb.Router do
     pipe_through :browser
 
     live "/", Live.Lobby, :index, as: "Lobby"
-    live "/game/:game_id", Live.Game, :index, as: "Game"
+    live "/room/:room_id", Live.Room, :index, as: "Room"
   end
 
   # Other scopes may use custom stacks.

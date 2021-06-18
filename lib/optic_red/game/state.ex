@@ -1,150 +1,85 @@
 defmodule OpticRed.Game.State do
-  @behaviour :gen_statem
+  alias OpticRed.Game.State.Data
 
-  require Logger
+  @words ~w{cat tractor house tree love luck money table floor christmas orange}
 
-  ##
-  ## API
-  ##
-
-  def start_link(%{game_id: game_id, teams: teams}) do
-    players = Enum.map(teams, fn team -> {team, []} end)
+  ###
+  ### Public
+  ###
+  def create_new(teams) do
     initial_lead_team = List.first(teams)
     score = Map.new(Enum.map(teams, fn team -> {team, 0} end))
     words = create_team_words(teams)
 
-    args = %{
-      initial_data: %{
+    %{
+      current: :setup,
+      data: %Data{
         rounds: [],
         teams: teams,
         lead_team: initial_lead_team,
-        players: players,
+        players: %{},
         score: score,
         words: words
       }
     }
-
-    name = get_game_id_name(game_id)
-    :gen_statem.start_link({:via, :gproc, name}, __MODULE__, args, [])
   end
 
-  def submit_clues(game_id, team, clues) do
-    case :gproc.where(get_game_id_name(game_id)) do
-      :undefined -> {:error, :game_not_found}
-      pid -> :gen_statem.call(pid, {:submit_clues, team, clues})
+  def set_player(%{data: %Data{} = data} = state, player_id, team) do
+    case state.current do
+      :setup ->
+        players = Map.put(data.players, player_id, team)
+
+        %{state | data: %{data | players: players}}
+
+      _ ->
+        {:error, "Can only assign players during setup phase"}
     end
   end
 
-  def submit_attempt(game_id, team, attempt) do
-    case :gproc.where(get_game_id_name(game_id)) do
-      :undefined -> {:error, :game_not_found}
-      pid -> :gen_statem.call(pid, {:submit_attempt, team, attempt})
+  def new_round(%{data: %Data{} = data, current: current} = state) do
+    case are_there_enough_players?(state) do
+      true ->
+        if current in [:setup, :round_end] do
+          new_round = create_empty_round(data.teams)
+          data = update_in(data.rounds, fn rounds -> [new_round | rounds] end)
+          %{state | data: data, current: :encipher}
+        else
+          {:error, "Can't start new round in the middle of an ongoing round"}
+        end
+
+      false ->
+        {:error, "Can't start new round without at least two players in each team"}
     end
   end
 
-  def get_game_data(game_id) do
-    case :gproc.where(get_game_id_name(game_id)) do
-      :underfined -> {:error, :game_not_found}
-      pid -> :gen_statem.call(pid, {:get_game_data})
+
+
+  def submit_clues(%{data: %Data{rounds: rounds, teams: teams} = data, current: current} = state, team, clues) do
+    case current do
+      :encipher ->
+        [current_round | _] = rounds
+        current_round = put_in(current_round[team].clues, clues)
+        data = update_in(data.rounds, &List.replace_at(&1, 0, current_round))
+
+        if Enum.any?(teams, fn team -> current_round[team].clues == nil end) do
+          %{state | data: data}
+        else
+          %{state | data: data, current: :decipher}
+        end
+        _ ->
+          {:error, "Subbmitting clues only allowed during encipher phase"}
     end
   end
 
-  def get_current_state(game_id) do
-    case :gproc.where(get_game_id_name(game_id)) do
-      :underfined -> {:error, :game_not_found}
-      pid -> :gen_statem.call(pid, {:get_current_state})
-    end
-  end
-
-  def get_current_round(game_id) do
-    case :gproc.where(get_game_id_name(game_id)) do
-      :underfined -> {:error, :game_not_found}
-      pid -> :gen_statem.call(pid, {:get_current_round})
-    end
-  end
-
-  ##
-  ## CALLBACKS
-  ##
-
-  def child_spec(options) do
-    %{
-      id: __MODULE__,
-      start: {__MODULE__, :start_link, [options]}
-    }
-  end
-
-  @impl :gen_statem
-  def init(%{initial_data: initial_data}) do
-    {:ok, :encipher, initial_data}
-  end
-
-  @impl :gen_statem
-  def callback_mode() do
-    [:handle_event_function, :state_enter]
-  end
-
-  @impl :gen_statem
-  def handle_event(:enter, _old_state, :decipher, %{lead_team: lead_team} = _data) do
-    Logger.debug("Time to decipher team #{lead_team}'s code!")
-    :keep_state_and_data
-  end
-
-  # ENTER: NEW ROUND
-
-  @impl :gen_statem
-  def handle_event(:enter, _, :encipher, data) do
-    Logger.debug("New round!")
-    new_round = create_empty_round(data.teams)
-    data = update_in(data.rounds, fn rounds -> [new_round | rounds] end)
-
-    {:next_state, :encipher, data}
-  end
-
-  # ENTER: GAME END
-
-  @impl :gen_statem
-  def handle_event(:enter, _, :game_end, data) do
-    Logger.debug("Game end.")
-    {:next_state, :game_end, data}
-  end
-
-  # ENCIPHER
-
-  @impl :gen_statem
-  def handle_event(
-        {:call, from},
-        {:submit_clues, team, clues},
-        :encipher = state,
-        %{rounds: rounds, teams: teams} = data
-      ) do
-    [current_round | _] = rounds
-    current_round = put_in(current_round[team].clues, clues)
-    data = update_in(data.rounds, &List.replace_at(&1, 0, current_round))
-
-    reply = {:reply, from, {:ok, state, data}}
-
-    if Enum.any?(teams, fn team -> current_round[team].clues == nil end) do
-      {:keep_state, data, reply}
-    else
-      {:next_state, :decipher, data, reply}
-    end
-  end
-
-  # DECPIPHER PHASE
-
-  @impl :gen_statem
-  def handle_event(
-        {:call, from},
-        {:submit_attempt, team, attempt},
-        :decipher = state,
-        data
-      ) do
+  def submit_attempt(%{data: %Data{} = data} = state, team, attempt) do
     data = do_submit_attempt(data, team, attempt)
 
     case have_all_teams_submitted?(data) do
       false ->
-        {:keep_state, data, {:reply, from, {:ok, state, data}}}
+        state
+        |> Map.put(:data, data)
+
+      # {:keep_state, data, {:reply, from, {:ok, state, data}}}
 
       true ->
         next_lead_team = get_next_lead_team(data)
@@ -156,42 +91,54 @@ defmodule OpticRed.Game.State do
             case has_any_team_won?(data) do
               true ->
                 data = %{data | lead_team: next_lead_team}
-                {:next_state, :game_end, data, {:reply, from, {:ok, state, data}}}
+
+                state
+                |> Map.put(:data, data)
+                |> Map.put(:state, :game_end)
+
+              # {:next_state, :game_end, data, {:reply, from, {:ok, state, data}}}
 
               false ->
                 data = %{data | lead_team: next_lead_team}
-                {:next_state, :encipher, data, {:reply, from, {:ok, state, data}}}
+
+                state
+                |> Map.put(:data, data)
+                |> Map.put(state, :encipher)
+
+                # {:next_state, :encipher, data, {:reply, from, {:ok, state, data}}}
             end
 
           false ->
             data = %{data | lead_team: next_lead_team}
-            {:next_state, :decipher, data, {:reply, from, {:ok, state, data}}}
+
+            state
+            |> Map.put(:data, data)
+            |> Map.put(:state, :decipher)
+
+            # {:next_state, :decipher, data, {:reply, from, {:ok, state, data}}}
         end
     end
   end
 
-  @impl :gen_statem
-  def handle_event({:call, from}, {:get_game_data}, _, data) do
-    {:keep_state_and_data, {:reply, from, {:ok, data}}}
+  ###
+  ### Private
+  ###
+
+  defp are_there_enough_players?(state) do
+    Enum.all?(get_team_players_map(state), fn {_, players} -> length(players) >= 2 end)
   end
 
-  @impl :gen_statem
-  def handle_event({:call, from}, {:get_current_round}, _, data) do
-    {:keep_state_and_data, {:reply, from, {:ok, List.first(data.rounds)}}}
+  defp get_team_players_map(%{data: %Data{players: players}}) do
+    Enum.group_by(players, fn {_, team} -> team end, fn {player_id, _} -> player_id end)
   end
 
-  @impl :gen_statem
-  def handle_event({:call, from}, {:get_game_state}, state, _data) do
-    {:keep_state_and_data, {:reply, from, {:ok, state}}}
-  end
-
-  defp do_submit_attempt(%{rounds: rounds, lead_team: lead_team} = data, team, attempt) do
+  defp do_submit_attempt(%Data{rounds: rounds, lead_team: lead_team} = data, team, attempt) do
     [current_round | _] = rounds
     current_round = put_in(current_round[team].attempts[lead_team], attempt)
     update_in(data.rounds, &List.replace_at(&1, 0, current_round))
   end
 
-  defp have_all_teams_submitted?(data) do
+  defp have_all_teams_submitted?(%Data{} = data) do
     [current_round | _] = data.rounds
 
     all_submitted_attempts =
@@ -200,20 +147,20 @@ defmodule OpticRed.Game.State do
     nil not in all_submitted_attempts
   end
 
-  defp have_all_teams_been_lead?(data) do
+  defp have_all_teams_been_lead?(%Data{} = data) do
     next_lead_team = get_next_lead_team(data)
     first_lead_team = List.first(data.teams)
     next_lead_team == first_lead_team
   end
 
-  defp update_score(data) do
+  defp update_score(%Data{} = data) do
     [current_round | _] = data.rounds
     round_score = get_round_score(data.teams, current_round)
     total_score = Map.merge(data.score, round_score, fn _, x, y -> x + y end)
     put_in(data.score, total_score)
   end
 
-  defp has_any_team_won?(data) do
+  defp has_any_team_won?(%Data{} = data) do
     Enum.any?(Map.values(data.score), fn score -> score >= 1 end)
   end
 
@@ -243,30 +190,16 @@ defmodule OpticRed.Game.State do
     end
   end
 
-  defp get_next_lead_team(data) do
+  defp get_next_lead_team(%Data{} = data) do
     lead_team_index = Enum.find_index(data.teams, fn team -> team == data.lead_team end)
     next_lead_team_index = rem(lead_team_index + 1, length(data.teams))
     Enum.at(data.teams, next_lead_team_index)
   end
 
-  # GAME END
-
-  ##
-  ## Private functions
-  ##
-
-  @words ~w{cat tractor house tree love luck money table floor christmas orange}
-
   defp create_empty_round(teams) do
     Enum.reduce(teams, %{}, fn team, team_map ->
       Map.put(team_map, team, create_team_map(teams))
     end)
-  end
-
-  defp create_team_words(teams) do
-    words = Enum.shuffle(@words)
-    word_lists = Enum.chunk_every(words, 4)
-    Map.new(Enum.zip([teams, word_lists]))
   end
 
   defp create_team_map(teams) do
@@ -287,5 +220,11 @@ defmodule OpticRed.Game.State do
 
   def get_random_code() do
     Enum.take_random(1..4, 3)
+  end
+
+  defp create_team_words(teams) do
+    words = Enum.shuffle(@words)
+    word_lists = Enum.chunk_every(words, 4)
+    Map.new(Enum.zip([teams, word_lists]))
   end
 end

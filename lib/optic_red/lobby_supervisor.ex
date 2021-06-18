@@ -1,19 +1,19 @@
-defmodule OpticRed.Game.GamesSupervisor do
+defmodule OpticRed.Lobby.Supervisor do
   use DynamicSupervisor
 
   def start_link(args) do
     DynamicSupervisor.start_link(__MODULE__, args, name: __MODULE__)
   end
 
-  def start_game(args) do
+  def create_room(room_id) do
     spec = %{
-      id: OpticRed.Game.Supervisor,
-      start: {OpticRed.Game.Supervisor, :start_link, [args]},
+      id: OpticRed.Room.Supervisor,
+      start: {OpticRed.Room.Supervisor, :start_link, [room_id]},
       restart: :temporary,
       modules: :dynamic
     }
 
-    DynamicSupervisor.start_child(__MODULE__, spec)
+    {:ok, _} = DynamicSupervisor.start_child(__MODULE__, spec)
   end
 
   @impl DynamicSupervisor

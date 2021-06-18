@@ -7,7 +7,10 @@ defmodule OpticRed do
   if it comes from the database, an external API or others.
   """
 
-  def start_new_game() do
-    OpticRed.Game.start_new()
+  def create_new_room() do
+    room_id = :crypto.strong_rand_bytes(4) |> Base.url_encode64(padding: false)
+    {:ok, _pid} = OpticRed.Lobby.Supervisor.create_room(room_id)
+
+    {:ok, room_id}
   end
 end

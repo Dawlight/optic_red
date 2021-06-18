@@ -1,58 +1,110 @@
 defmodule OpticRed.GameSateTest do
   use ExUnit.Case, async: false
 
-  setup do
-    game_id = 1
+  test "creates new state" do
     teams = [:red, :blue]
-    {:ok, state} = OpticRed.GameState.start_link(%{game_id: game_id, teams: teams})
-    %{game_id: game_id, teams: teams, state: state}
+    state = OpticRed.Game.State.create_new(teams)
+
+    %{
+      current: :setup,
+      data: %OpticRed.Game.State.Data{
+        rounds: [],
+        teams: ^teams,
+        lead_team: :red,
+        players: %{},
+        score: %{red: 0, blue: 0}
+      }
+    } = state
+
+    for {_, team_words} <- state.data.words do
+      assert length(team_words) == 4
+    end
   end
 
-  test "accepts clues", state do
-    clues = ["a", "b", "c"]
-    {:ok, _, _} = OpticRed.GameState.submit_clues(state.game_id, :red, clues)
-    {:ok, current_round} = OpticRed.GameState.get_current_round(state.game_id)
+  test "assigns player" do
+    player_id = "player1"
 
-    assert current_round[:red].clues === clues
+    state = OpticRed.Game.State.create_new([:red, :blue])
+
+    state = OpticRed.Game.State.set_player(state, player_id, :red)
+    assert Map.get(state.data.players, player_id) == :red
+
+    state = OpticRed.Game.State.set_player(state, player_id, :blue)
+    assert Map.get(state.data.players, player_id) == :blue
   end
 
-  test "accepts attempts", state do
-    red_clues = ["a", "b", "c"]
-    blue_clues = ["1", "2", "3"]
-    red_attempt = ["x", "y", "z"]
-    {:ok, _, _} = OpticRed.GameState.submit_clues(state.game_id, :red, red_clues)
-    {:ok, _, _} = OpticRed.GameState.submit_clues(state.game_id, :blue, blue_clues)
+  test "creates new round" do
+    player_1_id = "player1"
+    player_2_id = "player2"
+    player_3_id = "player3"
+    player_4_id = "player4"
 
-    {:ok, _, _} = OpticRed.GameState.submit_attempt(state.game_id, :red, red_attempt)
+    state = OpticRed.Game.State.create_new([:red, :blue])
 
-    {:ok, current_data} = OpticRed.GameState.get_game_data(state.game_id)
-    {:ok, current_round} = OpticRed.GameState.get_current_round(state.game_id)
+    state = OpticRed.Game.State.set_player(state, player_1_id, :red)
+    state = OpticRed.Game.State.set_player(state, player_2_id, :red)
+    state = OpticRed.Game.State.set_player(state, player_3_id, :blue)
+    state = OpticRed.Game.State.set_player(state, player_4_id, :blue)
 
-    assert current_round[:red].attempts[current_data.lead_team] === red_attempt
+    %{current: :encipher} = OpticRed.Game.State.new_round(state)
   end
 
-  test "calculates correct score", state do
-    red_clues = ["a", "b", "c"]
-    blue_clues = ["1", "2", "3"]
-    red_attempt = [1, 3, 7]
-    {:ok, current_round} = OpticRed.GameState.get_current_round(state.game_id)
+  test "can't create new round unless there are enough players" do
+    player_1_id = "player1"
+    player_2_id = "player2"
+    player_4_id = "player4"
 
-    {:ok, _, _} = OpticRed.GameState.submit_clues(state.game_id, :red, red_clues)
-    {:ok, _, _} = OpticRed.GameState.submit_clues(state.game_id, :blue, blue_clues)
+    state = OpticRed.Game.State.create_new([:red, :blue])
 
-    {:ok, _, _} = OpticRed.GameState.submit_attempt(state.game_id, :red, red_attempt)
+    state = OpticRed.Game.State.set_player(state, player_1_id, :red)
+    state = OpticRed.Game.State.set_player(state, player_2_id, :red)
+    state = OpticRed.Game.State.set_player(state, player_4_id, :blue)
 
-    {:ok, _, _} =
-      OpticRed.GameState.submit_attempt(state.game_id, :blue, current_round[:red].code)
+    {:error, _} = OpticRed.Game.State.new_round(state)
+  end
 
-    {:ok, _, _} = OpticRed.GameState.submit_attempt(state.game_id, :red, red_attempt)
+  test "submits clues" do
+    player_1_id = "player1"
+    player_2_id = "player2"
+    player_3_id = "player3"
+    player_4_id = "player4"
 
-    {:ok, _, _} =
-      OpticRed.GameState.submit_attempt(state.game_id, :blue, current_round[:blue].code)
+    state = OpticRed.Game.State.create_new([:red, :blue])
 
-    {:ok, current_data} = OpticRed.GameState.get_game_data(state.game_id)
+    state =
+      state
+      |> OpticRed.Game.State.set_player(player_1_id, :red)
+      |> OpticRed.Game.State.set_player(player_2_id, :red)
+      |> OpticRed.Game.State.set_player(player_3_id, :blue)
+      |> OpticRed.Game.State.set_player(player_4_id, :blue)
 
-    assert current_data.score[:red] == -2
-    assert current_data.score[:blue] == 1
+    state = OpticRed.Game.State.new_round(state)
+
+    state = OpticRed.Game.State.submit_clues(state, :red, ["Thick", "Big", "Gone"])
+
+    assert List.first(state.data.rounds)[:red].clues == ["Thick", "Big", "Gone"]
+
+  end
+
+  test "starts decipher phase when all clues have been submitted" do
+    player_1_id = "player1"
+    player_2_id = "player2"
+    player_3_id = "player3"
+    player_4_id = "player4"
+
+    state = OpticRed.Game.State.create_new([:red, :blue])
+
+    state =
+      state
+      |> OpticRed.Game.State.set_player(player_1_id, :red)
+      |> OpticRed.Game.State.set_player(player_2_id, :red)
+      |> OpticRed.Game.State.set_player(player_3_id, :blue)
+      |> OpticRed.Game.State.set_player(player_4_id, :blue)
+
+    state = OpticRed.Game.State.new_round(state)
+
+    state = OpticRed.Game.State.submit_clues(state, :red, ["Thick", "Big", "Gone"])
+    %{current: :decipher} = OpticRed.Game.State.submit_clues(state, :blue, ["Thin", "Small", "Home"])
+
   end
 end

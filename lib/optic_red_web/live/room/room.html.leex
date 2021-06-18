@@ -1,0 +1,5 @@
+<%= @test %>
+
+<%= for %{id: player_id, name: name} <- @players do %>
+<p>Player ID: <%= player_id %>, Name: <%= name %></p>
+<% end %>

@@ -7,13 +7,13 @@ defmodule OpticRedWeb.Live.Lobby do
   end
 
   @impl true
-  def handle_event("new_game", _value, socket) do
-    {:ok, game_id} = OpticRed.start_new_game()
-    {:noreply, push_redirect(socket, to: "/game/#{game_id}")}
+  def handle_event("new_room", _value, socket) do
+    {:ok, room_id} = OpticRed.create_new_room()
+    {:noreply, push_redirect(socket, to: "/room/#{room_id}")}
   end
 
   @impl true
-  def handle_event("join_game", _value, socket) do
+  def handle_event("join_room", _value, socket) do
     {:noreply, socket}
   end
 end
