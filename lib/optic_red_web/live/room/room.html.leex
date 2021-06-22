@@ -1,5 +1,12 @@
 <%= @test %>
 
-<%= for %{id: player_id, name: name} <- @players do %>
-<p>Player ID: <%= player_id %>, Name: <%= name %></p>
-<% end %>
+<ul>
+  <%= for %{id: player_id, name: name} <- @players do %>
+  <li>
+    <b>Player ID:</b> <%= player_id %>, <b>Name:</b> <%= name %>
+  </li>
+  <% end %>
+</ul>
+
+<button phx-click="join_blue">Join blue!</button>
+<button phx-click="join_red">Join red!</button>

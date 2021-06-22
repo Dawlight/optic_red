@@ -1,4 +1,6 @@
 defmodule OpticRed.Game.State do
+  require Logger
+
   alias OpticRed.Game.State.Data
 
   @words ~w{cat tractor house tree love luck money table floor christmas orange}
@@ -6,7 +8,7 @@ defmodule OpticRed.Game.State do
   ###
   ### Public
   ###
-  def create_new(teams) do
+  def create_new(teams, target_score \\ 2) do
     initial_lead_team = List.first(teams)
     score = Map.new(Enum.map(teams, fn team -> {team, 0} end))
     words = create_team_words(teams)
@@ -19,7 +21,8 @@ defmodule OpticRed.Game.State do
         lead_team: initial_lead_team,
         players: %{},
         score: score,
-        words: words
+        words: words,
+        target_score: target_score
       }
     }
   end
@@ -52,9 +55,11 @@ defmodule OpticRed.Game.State do
     end
   end
 
-
-
-  def submit_clues(%{data: %Data{rounds: rounds, teams: teams} = data, current: current} = state, team, clues) do
+  def submit_clues(
+        %{data: %Data{rounds: rounds, teams: teams} = data, current: current} = state,
+        team,
+        clues
+      ) do
     case current do
       :encipher ->
         [current_round | _] = rounds
@@ -66,18 +71,19 @@ defmodule OpticRed.Game.State do
         else
           %{state | data: data, current: :decipher}
         end
-        _ ->
-          {:error, "Subbmitting clues only allowed during encipher phase"}
+
+      _ ->
+        {:error, "Subbmitting clues only allowed during encipher phase"}
     end
   end
 
   def submit_attempt(%{data: %Data{} = data} = state, team, attempt) do
+    IO.inspect(nil, label: "Team #{team} submitts attempt #{attempt}")
     data = do_submit_attempt(data, team, attempt)
 
-    case have_all_teams_submitted?(data) do
+    case have_all_teams_submitted?(data) |> IO.inspect(label: "All teams have submitted?") do
       false ->
-        state
-        |> Map.put(:data, data)
+        %{state | data: data}
 
       # {:keep_state, data, {:reply, from, {:ok, state, data}}}
 
@@ -91,29 +97,20 @@ defmodule OpticRed.Game.State do
             case has_any_team_won?(data) do
               true ->
                 data = %{data | lead_team: next_lead_team}
-
-                state
-                |> Map.put(:data, data)
-                |> Map.put(:state, :game_end)
+                %{state | data: data, current: :game_end}
 
               # {:next_state, :game_end, data, {:reply, from, {:ok, state, data}}}
 
               false ->
                 data = %{data | lead_team: next_lead_team}
-
-                state
-                |> Map.put(:data, data)
-                |> Map.put(state, :encipher)
+                %{state | data: data, current: :encipher}
 
                 # {:next_state, :encipher, data, {:reply, from, {:ok, state, data}}}
             end
 
           false ->
             data = %{data | lead_team: next_lead_team}
-
-            state
-            |> Map.put(:data, data)
-            |> Map.put(:state, :decipher)
+            %{state | data: data, current: :decipher}
 
             # {:next_state, :decipher, data, {:reply, from, {:ok, state, data}}}
         end
@@ -143,6 +140,7 @@ defmodule OpticRed.Game.State do
 
     all_submitted_attempts =
       Enum.map(current_round, fn {team, _} -> current_round[team].attempts[data.lead_team] end)
+      |> IO.inspect(label: "All submitted attempts")
 
     nil not in all_submitted_attempts
   end
@@ -160,8 +158,8 @@ defmodule OpticRed.Game.State do
     put_in(data.score, total_score)
   end
 
-  defp has_any_team_won?(%Data{} = data) do
-    Enum.any?(Map.values(data.score), fn score -> score >= 1 end)
+  defp has_any_team_won?(%Data{target_score: target_score} = data) do
+    Enum.any?(Map.values(data.score), fn score -> score >= target_score end)
   end
 
   defp get_round_score(teams, round) do

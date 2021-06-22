@@ -71,7 +71,7 @@ defmodule OpticRed.Room do
 
       false ->
         players = Enum.uniq([player | players])
-        PubSub.broadcast(OpticRed.PubSub, data.room_topic, {:player_joined, player})
+        PubSub.broadcast(OpticRed.PubSub, data.room_topic, {:player_joined_room, player})
         {:reply, {:ok, player}, %{data | players: players}}
     end
   end
@@ -83,7 +83,7 @@ defmodule OpticRed.Room do
 
       player ->
         players = List.delete(players, player)
-        PubSub.broadcast(OpticRed.PubSub, data.room_topic, {:player_left, player})
+        PubSub.broadcast(OpticRed.PubSub, data.room_topic, {:player_left_room, player})
         {:reply, {:ok, player}, %{data | players: players}}
     end
   end

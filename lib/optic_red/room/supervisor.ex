@@ -12,7 +12,11 @@ defmodule OpticRed.Room.Supervisor do
   def init(room_id) do
     children = [
       {OpticRed.Room, room_id},
-      {OpticRed.Game.Coordinator, room_id}
+      {OpticRed.Game,
+       %{
+         room_id: room_id,
+         teams: [:red, :blue]
+       }}
     ]
 
     Supervisor.init(children, strategy: :rest_for_one)
