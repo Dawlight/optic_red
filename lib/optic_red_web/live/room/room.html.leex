@@ -1,12 +1,23 @@
-<%= @test %>
+<% alias OpticRedWeb.Live.Room %>
 
 <ul>
-  <%= for %{id: player_id, name: name} <- @players do %>
+  <%= for {team_id, team_name} <- [{nil, "Players"}, {:red, "Red"}, {:blue, "Red"}] do %>
+  <h1><%= team_name %></h1>
+  <%= for %{id: player_id, name: name} <- Room.get_players_in_team(@game_state, @players, team_id) do %>
   <li>
+    <%= if player_id == @current_player do %>
+    <b>You</b>
+    <% else %>
     <b>Player ID:</b> <%= player_id %>, <b>Name:</b> <%= name %>
+    <% end %>
   </li>
+  <% end %>
   <% end %>
 </ul>
 
-<button phx-click="join_blue">Join blue!</button>
+
+<button phx-click="leave_game">Leave game</button>
+<br>
 <button phx-click="join_red">Join red!</button>
+<br>
+<button phx-click="join_blue">Join blue!</button>

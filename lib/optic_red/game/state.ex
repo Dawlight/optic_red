@@ -39,6 +39,18 @@ defmodule OpticRed.Game.State do
     end
   end
 
+  def remove_player(%{data: %Data{} = data} = state, player_id) do
+    case state.current do
+      :setup ->
+        {_, players} = Map.pop_lazy(data.players, player_id, fn -> nil end)
+
+        %{state | data: %{data | players: players}}
+
+      _ ->
+        {:error, "Can only remove players during setup phase"}
+    end
+  end
+
   def new_round(%{data: %Data{} = data, current: current} = state) do
     case are_there_enough_players?(state) do
       true ->

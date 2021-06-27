@@ -46,7 +46,8 @@ defmodule OpticRedWeb do
   def live_view do
     quote do
       use Phoenix.LiveView,
-        layout: {OpticRedWeb.LayoutView, "live.html"}
+        layout: {OpticRedWeb.LayoutView, "live.html"},
+        namespace: OpticRedWeb
 
       unquote(view_helpers())
     end

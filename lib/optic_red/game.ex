@@ -14,10 +14,24 @@ defmodule OpticRed.Game do
     GenServer.start_link(__MODULE__, args, name: {:via, :gproc, name})
   end
 
+  def get_state(room_id) do
+    case :gproc.where(get_game_name(room_id)) do
+      :undefined -> {:error, :game_not_found}
+      pid -> GenServer.call(pid, :get_state)
+    end
+  end
+
   def join_game(room_id, player_id, team) do
     case :gproc.where(get_game_name(room_id)) do
-      :undefined -> false
+      :undefined -> {:error, :game_not_found}
       pid -> GenServer.call(pid, {:join_game, player_id, team})
+    end
+  end
+
+  def leave_game(room_id, player_id) do
+    case :gproc.where(get_game_name(room_id)) do
+      :undefined -> {:error, :game_not_found}
+      pid -> GenServer.call(pid, {:leave_game, player_id})
     end
   end
 
@@ -43,9 +57,25 @@ defmodule OpticRed.Game do
       state
       |> State.set_player(player_id, team)
 
-    PubSub.broadcast(OpticRed.PubSub, data.game_topic, {:player_joined_team, player_id, team})
+    PubSub.broadcast(OpticRed.PubSub, data.game_topic, {:game_state_updated, state})
 
     {:reply, :ok, %{data | state: state}}
+  end
+
+  @impl GenServer
+  def handle_call({:leave_game, player_id}, _from, %{state: state} = data) do
+    state =
+      state
+      |> State.remove_player(player_id)
+
+    PubSub.broadcast(OpticRed.PubSub, data.game_topic, {:game_state_updated, state})
+
+    {:reply, :ok, %{data | state: state}}
+  end
+
+  @impl GenServer
+  def handle_call(:get_state, _from, %{state: state} = data) do
+    {:reply, {:ok, state}, data}
   end
 
   ##
