@@ -1,63 +1,86 @@
 defmodule OpticRed.Game.State do
   require Logger
 
+  alias OpticRed.Game.State.State
   alias OpticRed.Game.State.Data
+  alias OpticRed.Game.State.Team
+  alias OpticRed.Game.State.Player
+  alias OpticRed.Game.State.TeamRound
 
   @words ~w{cat tractor house tree love luck money table floor christmas orange}
 
   ###
   ### Public
   ###
-  def create_new(teams, target_score \\ 2) do
-    initial_lead_team = List.first(teams)
-    score = Map.new(Enum.map(teams, fn team -> {team, 0} end))
-    words = create_team_words(teams)
+  def create_new(teams, players, player_team_map, target_score \\ 2) do
+    case teams do
+      teams when length(teams) < 2 ->
+        [initial_lead_team | _rest] = teams
+        team_words_map = create_team_words_map(teams)
 
-    %{
-      current: :setup,
-      data: %Data{
-        rounds: [],
-        teams: teams,
-        lead_team: initial_lead_team,
-        players: %{},
-        score: score,
-        words: words,
-        target_score: target_score
-      }
-    }
-  end
+        player_map = for %Player{id: id} = player <- players, into: %{}, do: {id, player}
+        team_map = for %Team{id: id} = team <- teams, into: %{}, do: {id, team}
+        team_score_map = for %Team{id: id} <- teams, into: %{}, do: {id, 0}
 
-  def set_player(%{data: %Data{} = data} = state, player_id, team) do
-    case state.current do
-      :setup ->
-        players = Map.put(data.players, player_id, team)
-
-        %{state | data: %{data | players: players}}
+        %State{
+          current: :setup,
+          data: %Data{
+            rounds: [],
+            teams: teams,
+            team_map: team_map,
+            player_map: player_map,
+            player_team_map: player_team_map,
+            lead_team_id: initial_lead_team.id,
+            team_words_map: team_words_map,
+            target_score: target_score,
+            team_score_map: team_score_map
+          }
+        }
 
       _ ->
-        {:error, "Can only assign players during setup phase"}
+        {:error, :insufficient_number_of_teams}
     end
   end
 
-  def remove_player(%{data: %Data{} = data} = state, player_id) do
-    case state.current do
-      :setup ->
-        {_, players} = Map.pop_lazy(data.players, player_id, fn -> nil end)
+  # def add_player(%State{data: data} = state, player_id, team_id) do
+  #   case state.current do
+  #     :setup ->
+  #       %Data{player_map: player_map, player_team_map: player_team_map} = data
 
-        %{state | data: %{data | players: players}}
+  #       player_map = player_map |> Map.put(player_id, %Player{id: player_id})
+  #       player_team_map = player_team_map |> Map.put(player_id, team_id)
 
-      _ ->
-        {:error, "Can only remove players during setup phase"}
-    end
-  end
+  #       %{state | data: %{data | player_map: player_map, player_team_map: player_team_map}}
 
-  def new_round(%{data: %Data{} = data, current: current} = state) do
-    case are_there_enough_players?(state) do
+  #     _ ->
+  #       {:error, "Can only assign players during setup phase"}
+  #   end
+  # end
+
+  # def remove_player(%State{data: data} = state, player_id) do
+  #   case state.current do
+  #     :setup ->
+  #       %Data{player_map: player_map, player_team_map: player_team_map} = data
+
+  #       {_, player_map} = player_map |> Map.pop(player_id)
+  #       {_, player_team_map} = player_team_map |> Map.pop(player_id)
+
+  #       %{state | data: %{data | player_map: player_map, player_team_map: player_team_map}}
+
+  #     _ ->
+  #       {:error, "Can only remove players during setup phase"}
+  #   end
+  # end
+
+  def new_round(%State{data: data, current: current} = state) do
+    %Data{rounds: rounds} = data
+
+    case minimum_number_of_players?(state) do
       true ->
         if current in [:setup, :round_end] do
-          new_round = create_empty_round(data.teams)
-          data = update_in(data.rounds, fn rounds -> [new_round | rounds] end)
-          %{state | data: data, current: :encipher}
+          rounds = [create_new_round(data) | rounds]
+
+          %{state | data: %{data | rounds: rounds}, current: :encipher}
         else
           {:error, "Can't start new round in the middle of an ongoing round"}
         end
@@ -67,31 +90,40 @@ defmodule OpticRed.Game.State do
     end
   end
 
-  def submit_clues(
-        %{data: %Data{rounds: rounds, teams: teams} = data, current: current} = state,
-        team,
-        clues
-      ) do
-    case current do
-      :encipher ->
-        [current_round | _] = rounds
-        current_round = put_in(current_round[team].clues, clues)
-        data = update_in(data.rounds, &List.replace_at(&1, 0, current_round))
+  ## TODO: FINISH WHERE I LEFT OFF
 
-        if Enum.any?(teams, fn team -> current_round[team].clues == nil end) do
-          %{state | data: data}
-        else
-          %{state | data: data, current: :decipher}
-        end
+  ##
+  ## Encipher
+  ##
 
-      _ ->
-        {:error, "Subbmitting clues only allowed during encipher phase"}
+  def submit_clues(%State{current: current}, _team_id, _clues) when current != :encipher do
+    {:error, "Subbmitting clues only allowed during encipher phase"}
+  end
+
+  def submit_clues(%State{} = state, team_id, clues) do
+    %State{data: %Data{rounds: rounds, team_map: team_map} = data} = state
+    [current_round | _] = rounds
+    current_round = put_in(current_round[team_id].clues, clues)
+    data = update_in(data.rounds, &List.replace_at(&1, 0, current_round))
+
+    if Enum.any?(team_map, fn {team_id, _} -> current_round[team_id].clues == nil end) do
+      %{state | data: data}
+    else
+      %{state | data: data, current: :decipher}
     end
   end
 
-  def submit_attempt(%{data: %Data{} = data} = state, team, attempt) do
-    IO.inspect(nil, label: "Team #{team} submitts attempt #{attempt}")
-    data = do_submit_attempt(data, team, attempt)
+  ##
+  ## Decipher
+  ##
+
+  def submit_attempt(%State{current: current}, _team, _attempt) when current != :decipher do
+    {:error, "Submitting attempts only allowed during decipher phase"}
+  end
+
+  def submit_attempt(%State{data: %Data{} = data} = state, team_id, attempt) do
+    attempt |> IO.inspect(label: "Team #{team_id} submits attempt")
+    data = data |> do_submit_attempt(team_id, attempt)
 
     case have_all_teams_submitted?(data) |> IO.inspect(label: "All teams have submitted?") do
       false ->
@@ -102,27 +134,27 @@ defmodule OpticRed.Game.State do
       true ->
         next_lead_team = get_next_lead_team(data)
 
-        case have_all_teams_been_lead?(data) do
+        case have_all_teams_been_lead?(data) |> IO.inspect(label: "All teams have been lead?") do
           true ->
             data = update_score(data)
 
             case has_any_team_won?(data) do
               true ->
-                data = %{data | lead_team: next_lead_team}
-                %{state | data: data, current: :game_end}
+                data = %Data{data | lead_team_id: next_lead_team.id}
+                %State{state | data: data, current: :game_end}
 
               # {:next_state, :game_end, data, {:reply, from, {:ok, state, data}}}
 
               false ->
-                data = %{data | lead_team: next_lead_team}
-                %{state | data: data, current: :encipher}
+                data = %Data{data | lead_team_id: next_lead_team.id}
+                %State{state | data: data, current: :encipher}
 
                 # {:next_state, :encipher, data, {:reply, from, {:ok, state, data}}}
             end
 
           false ->
-            data = %{data | lead_team: next_lead_team}
-            %{state | data: data, current: :decipher}
+            data = %Data{data | lead_team_id: next_lead_team.id}
+            %State{state | data: data, current: :decipher}
 
             # {:next_state, :decipher, data, {:reply, from, {:ok, state, data}}}
         end
@@ -133,56 +165,59 @@ defmodule OpticRed.Game.State do
   ### Private
   ###
 
-  defp are_there_enough_players?(state) do
-    Enum.all?(get_team_players_map(state), fn {_, players} -> length(players) >= 2 end)
+  defp minimum_number_of_players?(%{data: %Data{team_map: team_map}} = state) do
+    Enum.all?(team_map, fn {team_id, _team} -> get_player_count(state, team_id) >= 2 end)
   end
 
-  defp get_team_players_map(%{data: %Data{players: players}}) do
-    Enum.group_by(players, fn {_, team} -> team end, fn {player_id, _} -> player_id end)
+  defp get_player_count(%{data: %Data{player_team_map: player_team_map}}, team_id_to_count) do
+    Enum.count(player_team_map, fn {_player_id, team_id} -> team_id == team_id_to_count end)
   end
 
-  defp do_submit_attempt(%Data{rounds: rounds, lead_team: lead_team} = data, team, attempt) do
+  defp do_submit_attempt(data, team_id, attempt) do
+    %Data{rounds: rounds, lead_team_id: lead_team_id} = data
     [current_round | _] = rounds
-    current_round = put_in(current_round[team].attempts[lead_team], attempt)
+    current_round = put_in(current_round[team_id].attempts[lead_team_id], attempt)
     update_in(data.rounds, &List.replace_at(&1, 0, current_round))
   end
 
   defp have_all_teams_submitted?(%Data{} = data) do
     [current_round | _] = data.rounds
 
+    current_round |> IO.inspect(label: "CURRENT ROUND")
+
     all_submitted_attempts =
-      Enum.map(current_round, fn {team, _} -> current_round[team].attempts[data.lead_team] end)
-      |> IO.inspect(label: "All submitted attempts")
+      Enum.map(current_round, fn {team, _} -> current_round[team].attempts[data.lead_team_id] end)
 
     nil not in all_submitted_attempts
   end
 
-  defp have_all_teams_been_lead?(%Data{} = data) do
+  defp have_all_teams_been_lead?(%Data{teams: teams} = data) do
     next_lead_team = get_next_lead_team(data)
-    first_lead_team = List.first(data.teams)
-    next_lead_team == first_lead_team
+    next_lead_team_index = teams |> Enum.find_index(&(&1.id == next_lead_team.id))
+    next_lead_team_index == 0
   end
 
-  defp update_score(%Data{} = data) do
-    [current_round | _] = data.rounds
-    round_score = get_round_score(data.teams, current_round)
-    total_score = Map.merge(data.score, round_score, fn _, x, y -> x + y end)
-    put_in(data.score, total_score)
+  defp update_score(data) do
+    %Data{rounds: rounds, team_map: team_map, team_score_map: team_score_map} = data
+    [current_round | _] = rounds
+    round_score = get_round_score(team_map, current_round)
+    total_score = Map.merge(team_score_map, round_score, fn _, x, y -> x + y end)
+    put_in(data.team_score_map, total_score)
   end
 
   defp has_any_team_won?(%Data{target_score: target_score} = data) do
-    Enum.any?(Map.values(data.score), fn score -> score >= target_score end)
+    Enum.any?(Map.values(data.team_score_map), fn score -> score >= target_score end)
   end
 
-  defp get_round_score(teams, round) do
+  defp get_round_score(team_map, round) do
     matchups =
-      for deciphering_team <- teams,
-          enciphering_team <- teams,
-          do: {deciphering_team, enciphering_team}
+      for {deciphering_team_id, _} <- team_map,
+          {enciphering_team_id, _} <- team_map,
+          do: {deciphering_team_id, enciphering_team_id}
 
-    Enum.reduce(matchups, %{}, fn {dec_team, enc_team}, score_totals ->
-      score = get_team_vs_team_round_score(dec_team, enc_team, round)
-      Map.update(score_totals, dec_team, score, fn current_score -> current_score + score end)
+    Enum.reduce(matchups, %{}, fn {dec_team_id, enc_team_id}, score_totals ->
+      score = get_team_vs_team_round_score(dec_team_id, enc_team_id, round)
+      Map.update(score_totals, dec_team_id, score, fn current_score -> current_score + score end)
     end)
   end
 
@@ -200,41 +235,48 @@ defmodule OpticRed.Game.State do
     end
   end
 
-  defp get_next_lead_team(%Data{} = data) do
-    lead_team_index = Enum.find_index(data.teams, fn team -> team == data.lead_team end)
-    next_lead_team_index = rem(lead_team_index + 1, length(data.teams))
-    Enum.at(data.teams, next_lead_team_index)
+  defp get_next_lead_team(%Data{teams: teams, lead_team_id: lead_team_id}) do
+    lead_team_index = teams |> Enum.find_index(&(&1.id == lead_team_id))
+    next_lead_team_index = rem(lead_team_index + 1, length(teams))
+    {:ok, next_lead_team} = teams |> Enum.fetch(next_lead_team_index)
+    next_lead_team
   end
 
-  defp create_empty_round(teams) do
-    Enum.reduce(teams, %{}, fn team, team_map ->
-      Map.put(team_map, team, create_team_map(teams))
-    end)
-  end
+  defp create_new_round(%Data{team_map: team_map} = data),
+    do: for({id, _} <- team_map, into: %{}, do: {id, create_team_round(id, data)})
 
-  defp create_team_map(teams) do
-    %{
-      code: Enum.take_random(1..4, 3),
+  defp create_team_round(team_id, %Data{} = data),
+    do: %TeamRound{
+      encipherer_player_id: Enum.random(get_players_by_team_id(data, team_id)).id,
+      code: get_random_code(),
       clues: nil,
-      attempts: create_attempts_map(teams)
+      attempts: create_attempts_map(data)
     }
+
+  def get_players_by_team_id(data, team_id) do
+    %Data{player_team_map: player_team_map, player_map: player_map} = data
+
+    player_ids =
+      player_team_map
+      |> Enum.filter(fn {_, player_team_id} -> player_team_id == team_id end)
+      |> Enum.map(&elem(&1, 0))
+
+    player_map
+    |> Map.take(player_ids)
+    |> Enum.map(fn {_, player} -> player end)
   end
 
-  defp create_attempts_map(teams) do
-    teams |> Enum.reduce(%{}, fn team, team_map -> Map.put(team_map, team, nil) end)
-  end
+  defp create_attempts_map(%Data{team_map: team_map}),
+    do: for({id, _} <- team_map, into: %{}, do: {id, nil})
 
-  def get_game_id_name(game_id) do
-    {:n, :l, {:game_state, game_id}}
-  end
+  def get_random_code(), do: Enum.take_random(1..4, 3)
 
-  def get_random_code() do
-    Enum.take_random(1..4, 3)
-  end
-
-  defp create_team_words(teams) do
+  defp create_team_words_map(teams) do
     words = Enum.shuffle(@words)
     word_lists = Enum.chunk_every(words, 4)
-    Map.new(Enum.zip([teams, word_lists]))
+    team_ids = teams |> Enum.map(& &1.id)
+    Map.new(Enum.zip([team_ids, word_lists]))
   end
+
+  def get_game_id_name(game_id), do: {:n, :l, {:game_state, game_id}}
 end

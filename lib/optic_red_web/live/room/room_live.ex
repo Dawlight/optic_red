@@ -1,7 +1,9 @@
-defmodule OpticRedWeb.Live.Room do
+defmodule OpticRedWeb.Live.RoomLive do
   use OpticRedWeb, :live_view
 
   alias Phoenix.PubSub
+
+  @teams [{"red", "Red"}, {"blue", "Blue"}]
 
   ###
   ### Mount and parameters
@@ -21,14 +23,14 @@ defmodule OpticRedWeb.Live.Room do
             {:ok, push_redirect(socket, to: "/")}
 
           true ->
-            case OpticRed.Room.join(room_id, player_id, "Player #{player_id}") do
+            case OpticRed.add_player(room_id, player_id, "Player #{player_id}") do
               {:ok, _} ->
                 # Welcome!
-                subscribe_and_fetch_data(room_id, session, socket)
+                socket |> subscribe_and_fetch_data(room_id, session)
 
               {:error, :player_already_joined} ->
                 # Welcome back!
-                subscribe_and_fetch_data(room_id, session, socket)
+                socket |> subscribe_and_fetch_data(room_id, session)
             end
         end
 
@@ -38,7 +40,8 @@ defmodule OpticRedWeb.Live.Room do
            test: "Connecting..",
            players: [],
            current_player: nil,
-           game_state: %{current: :unknown, data: %{}}
+           game_state: %{current: :unknown, data: %OpticRed.Game.State.Data{}},
+           teams: @teams
          )}
     end
   end
@@ -53,20 +56,14 @@ defmodule OpticRedWeb.Live.Room do
   ###
 
   @impl true
-  def handle_event("join_red", _params, %{assigns: assigns} = socket) do
-    :ok = OpticRed.Game.join_game(assigns.room_id, assigns.player_id, :red)
-    {:noreply, socket}
-  end
-
-  @impl true
-  def handle_event("join_blue", _params, %{assigns: assigns} = socket) do
-    :ok = OpticRed.Game.join_game(assigns.room_id, assigns.player_id, :blue)
+  def handle_event("join_team", %{"team_id" => team_id}, %{assigns: assigns} = socket) do
+    :ok = OpticRed.assign_player(assigns.room_id, assigns.player_id, team_id)
     {:noreply, socket}
   end
 
   @impl true
   def handle_event("leave_game", _params, %{assigns: assigns} = socket) do
-    :ok = OpticRed.Game.leave_game(assigns.room_id, assigns.player_id)
+    :ok = OpticRed.remove_player(assigns.room_id, assigns.player_id)
     {:noreply, socket}
   end
 
@@ -75,20 +72,42 @@ defmodule OpticRedWeb.Live.Room do
   ###
 
   @impl true
-  def handle_info({:game_state_updated, game_state}, socket) do
-    {:noreply, assign(socket, game_state: game_state)}
+  def handle_info({:game_created, game_state}, %{assigns: assigns} = socket) do
+    ## TODO: Do something when game starts
+    {:noreply, socket}
   end
 
   @impl true
-  def handle_info({:player_joined_room, player}, %{assigns: assigns} = socket) do
-    IO.inspect(player, label: "Player joined: ")
+  def handle_info({:player_added, player}, %{assigns: assigns} = socket) do
     {:noreply, assign(socket, players: [player | assigns.players])}
   end
 
   @impl true
-  def handle_info({:player_left_room, player}, %{assigns: assigns} = socket) do
-    IO.inspect(socket, label: "Player left: ")
+  def handle_info({:player_removed, player}, %{assigns: assigns} = socket) do
     {:noreply, assign(socket, players: List.delete(assigns.players, player))}
+  end
+
+  @impl true
+  def handle_info({:team_added, team}, %{assigns: assigns} = socket) do
+    ## TODO: Do something when team is added
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:team_removed, team}, %{assigns: assigns} = socket) do
+    ## TODO: Do something when team is removed
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:player_assigned, player_id, team_id}, %{assigns: assigns} = socket) do
+    ## TODO: Do something when player is assigned
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:game_state_updated, game_state}, socket) do
+    {:noreply, assign(socket, game_state: game_state)}
   end
 
   ###
@@ -98,7 +117,7 @@ defmodule OpticRedWeb.Live.Room do
   @impl true
   def terminate(_, %{assigns: assigns} = socket) do
     IO.inspect(socket, label: "Terminate")
-    OpticRed.Room.leave(assigns.room_id, assigns.player_id)
+    OpticRed.remove_player(assigns.room_id, assigns.player_id)
     PubSub.unsubscribe(OpticRed.PubSub, room_topic(assigns.room_id))
     :shutdown
   end
@@ -112,32 +131,40 @@ defmodule OpticRedWeb.Live.Room do
   end
 
   def get_players_in_team(%{data: data}, players, team) do
-    IO.inspect(players, label: "Players")
-    IO.inspect(data, label: "Data")
-
     Enum.filter(players, fn %{id: id} ->
       Enum.member?(Map.keys(data.players), id) and data.players[id] == team
     end)
+  end
+
+  def is_team_joinable?(%{data: data}, teams, team) do
+    ## TODO: Actual logic
+    true
   end
 
   ###
   ### Private
   ###
 
-  defp subscribe_and_fetch_data(room_id, session, socket) do
+  defp subscribe_and_fetch_data(socket, room_id, session) do
     subscribe_to_room(room_id)
     subscribe_to_game(room_id)
 
     %{"player_id" => current_player} = session
-    {:ok, players} = OpticRed.Room.get_players(room_id)
-    {:ok, game_state} = OpticRed.Game.get_state(room_id)
+    {:ok, players} = OpticRed.get_players(room_id)
+
+    game_state =
+      case OpticRed.get_game_state(room_id) do
+        {:ok, game_state} -> game_state
+        {:error, _} -> nil
+      end
 
     {:ok,
      assign(socket,
        test: "Hello!",
        players: players,
        game_state: game_state,
-       current_player: current_player
+       current_player: current_player,
+       teams: @teams
      )}
   end
 

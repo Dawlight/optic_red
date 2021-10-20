@@ -1,4 +1,4 @@
-defmodule OpticRedWeb.Live.Lobby do
+defmodule OpticRedWeb.Live.LobbyLive do
   use OpticRedWeb, :live_view
 
   @impl true

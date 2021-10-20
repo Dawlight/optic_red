@@ -7,8 +7,8 @@ defmodule OpticRed.Lobby.Supervisor do
 
   def create_room(room_id) do
     spec = %{
-      id: OpticRed.Room.Supervisor,
-      start: {OpticRed.Room.Supervisor, :start_link, [room_id]},
+      id: OpticRed.Room,
+      start: {OpticRed.Room, :start_link, [room_id]},
       restart: :temporary,
       modules: :dynamic
     }

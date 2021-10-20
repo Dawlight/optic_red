@@ -1,7 +1,7 @@
-<% alias OpticRedWeb.Live.Room %>
+<% alias OpticRedWeb.Live.RoomLive %>
 
 <ul>
-  <%= for {team_id, team_name} <- [{nil, "Players"}, {:red, "Red"}, {:blue, "Red"}] do %>
+  <%= for {team_id, team_name} <- [{nil, "Players"} | @teams] do %>
   <h1><%= team_name %></h1>
   <%= for %{id: player_id, name: name} <- Room.get_players_in_team(@game_state, @players, team_id) do %>
   <li>
@@ -18,6 +18,8 @@
 
 <button phx-click="leave_game">Leave game</button>
 <br>
-<button phx-click="join_red">Join red!</button>
+<%= for {team_id, team_name} <- @teams do %>
+<button phx-click="join_team" phx-value-team_id="<%= team_id %>"
+  <%= if !is_team_joinable?(@game_state, @teams, team_id), do: "disabled" %>>Join <%= team_name %></button>
 <br>
-<button phx-click="join_blue">Join blue!</button>
+<% end %>
