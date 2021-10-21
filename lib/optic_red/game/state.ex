@@ -1,7 +1,8 @@
 defmodule OpticRed.Game.State do
+  defstruct [:data, :current]
+
   require Logger
 
-  alias OpticRed.Game.State.State
   alias OpticRed.Game.State.Data
   alias OpticRed.Game.State.Team
   alias OpticRed.Game.State.Player
@@ -12,6 +13,7 @@ defmodule OpticRed.Game.State do
   ###
   ### Public
   ###
+
   def create_new(teams, players, player_team_map, target_score \\ 2) do
     case teams do
       teams when length(teams) < 2 ->
@@ -22,7 +24,7 @@ defmodule OpticRed.Game.State do
         team_map = for %Team{id: id} = team <- teams, into: %{}, do: {id, team}
         team_score_map = for %Team{id: id} <- teams, into: %{}, do: {id, 0}
 
-        %State{
+        %__MODULE__{
           current: :setup,
           data: %Data{
             rounds: [],
@@ -42,37 +44,7 @@ defmodule OpticRed.Game.State do
     end
   end
 
-  # def add_player(%State{data: data} = state, player_id, team_id) do
-  #   case state.current do
-  #     :setup ->
-  #       %Data{player_map: player_map, player_team_map: player_team_map} = data
-
-  #       player_map = player_map |> Map.put(player_id, %Player{id: player_id})
-  #       player_team_map = player_team_map |> Map.put(player_id, team_id)
-
-  #       %{state | data: %{data | player_map: player_map, player_team_map: player_team_map}}
-
-  #     _ ->
-  #       {:error, "Can only assign players during setup phase"}
-  #   end
-  # end
-
-  # def remove_player(%State{data: data} = state, player_id) do
-  #   case state.current do
-  #     :setup ->
-  #       %Data{player_map: player_map, player_team_map: player_team_map} = data
-
-  #       {_, player_map} = player_map |> Map.pop(player_id)
-  #       {_, player_team_map} = player_team_map |> Map.pop(player_id)
-
-  #       %{state | data: %{data | player_map: player_map, player_team_map: player_team_map}}
-
-  #     _ ->
-  #       {:error, "Can only remove players during setup phase"}
-  #   end
-  # end
-
-  def new_round(%State{data: data, current: current} = state) do
+  def new_round(%__MODULE__{data: data, current: current} = state) do
     %Data{rounds: rounds} = data
 
     case minimum_number_of_players?(state) do
@@ -96,12 +68,12 @@ defmodule OpticRed.Game.State do
   ## Encipher
   ##
 
-  def submit_clues(%State{current: current}, _team_id, _clues) when current != :encipher do
+  def submit_clues(%__MODULE__{current: current}, _team_id, _clues) when current != :encipher do
     {:error, "Subbmitting clues only allowed during encipher phase"}
   end
 
-  def submit_clues(%State{} = state, team_id, clues) do
-    %State{data: %Data{rounds: rounds, team_map: team_map} = data} = state
+  def submit_clues(%__MODULE__{} = state, team_id, clues) do
+    %__MODULE__{data: %Data{rounds: rounds, team_map: team_map} = data} = state
     [current_round | _] = rounds
     current_round = put_in(current_round[team_id].clues, clues)
     data = update_in(data.rounds, &List.replace_at(&1, 0, current_round))
@@ -117,11 +89,11 @@ defmodule OpticRed.Game.State do
   ## Decipher
   ##
 
-  def submit_attempt(%State{current: current}, _team, _attempt) when current != :decipher do
+  def submit_attempt(%__MODULE__{current: current}, _team, _attempt) when current != :decipher do
     {:error, "Submitting attempts only allowed during decipher phase"}
   end
 
-  def submit_attempt(%State{data: %Data{} = data} = state, team_id, attempt) do
+  def submit_attempt(%__MODULE__{data: %Data{} = data} = state, team_id, attempt) do
     attempt |> IO.inspect(label: "Team #{team_id} submits attempt")
     data = data |> do_submit_attempt(team_id, attempt)
 
@@ -141,24 +113,41 @@ defmodule OpticRed.Game.State do
             case has_any_team_won?(data) do
               true ->
                 data = %Data{data | lead_team_id: next_lead_team.id}
-                %State{state | data: data, current: :game_end}
+                %__MODULE__{state | data: data, current: :game_end}
 
               # {:next_state, :game_end, data, {:reply, from, {:ok, state, data}}}
 
               false ->
                 data = %Data{data | lead_team_id: next_lead_team.id}
-                %State{state | data: data, current: :encipher}
+                %__MODULE__{state | data: data, current: :encipher}
 
                 # {:next_state, :encipher, data, {:reply, from, {:ok, state, data}}}
             end
 
           false ->
             data = %Data{data | lead_team_id: next_lead_team.id}
-            %State{state | data: data, current: :decipher}
+            %__MODULE__{state | data: data, current: :decipher}
 
             # {:next_state, :decipher, data, {:reply, from, {:ok, state, data}}}
         end
     end
+  end
+
+  ###
+  ### Getters
+  ###
+
+  def get_players_by_team_id(data, team_id) do
+    %Data{player_team_map: player_team_map, player_map: player_map} = data
+
+    player_ids =
+      player_team_map
+      |> Enum.filter(fn {_, player_team_id} -> player_team_id == team_id end)
+      |> Enum.map(&elem(&1, 0))
+
+    player_map
+    |> Map.take(player_ids)
+    |> Enum.map(fn {_, player} -> player end)
   end
 
   ###
@@ -252,19 +241,6 @@ defmodule OpticRed.Game.State do
       clues: nil,
       attempts: create_attempts_map(data)
     }
-
-  def get_players_by_team_id(data, team_id) do
-    %Data{player_team_map: player_team_map, player_map: player_map} = data
-
-    player_ids =
-      player_team_map
-      |> Enum.filter(fn {_, player_team_id} -> player_team_id == team_id end)
-      |> Enum.map(&elem(&1, 0))
-
-    player_map
-    |> Map.take(player_ids)
-    |> Enum.map(fn {_, player} -> player end)
-  end
 
   defp create_attempts_map(%Data{team_map: team_map}),
     do: for({id, _} <- team_map, into: %{}, do: {id, nil})

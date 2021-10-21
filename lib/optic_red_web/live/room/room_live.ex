@@ -2,8 +2,18 @@ defmodule OpticRedWeb.Live.RoomLive do
   use OpticRedWeb, :live_view
 
   alias Phoenix.PubSub
+  alias OpticRed.Game.State.Team
+  alias OpticRed.Game.State.Player
 
-  @teams [{"red", "Red"}, {"blue", "Blue"}]
+  @default_assigns %{
+    test: "Hello!",
+    players: [],
+    teams: [],
+    player_team_map: %{},
+    current_player: nil,
+    player_id: nil,
+    room_id: nil
+  }
 
   ###
   ### Mount and parameters
@@ -25,24 +35,15 @@ defmodule OpticRedWeb.Live.RoomLive do
           true ->
             case OpticRed.add_player(room_id, player_id, "Player #{player_id}") do
               {:ok, _} ->
-                # Welcome!
                 socket |> subscribe_and_fetch_data(room_id, session)
 
               {:error, :player_already_joined} ->
-                # Welcome back!
                 socket |> subscribe_and_fetch_data(room_id, session)
             end
         end
 
       false ->
-        {:ok,
-         assign(socket,
-           test: "Connecting..",
-           players: [],
-           current_player: nil,
-           game_state: %{current: :unknown, data: %OpticRed.Game.State.Data{}},
-           teams: @teams
-         )}
+        {:ok, assign(socket, @default_assigns)}
     end
   end
 
@@ -56,6 +57,13 @@ defmodule OpticRedWeb.Live.RoomLive do
   ###
 
   @impl true
+  def handle_event("add_team", _values, %{assigns: assigns} = socket) do
+    team_id = :crypto.strong_rand_bytes(8) |> Base.url_encode64(padding: false)
+    {:ok, _team} = OpticRed.add_team(assigns.room_id, team_id, "Team #{team_id}")
+    {:noreply, socket}
+  end
+
+  @impl true
   def handle_event("join_team", %{"team_id" => team_id}, %{assigns: assigns} = socket) do
     :ok = OpticRed.assign_player(assigns.room_id, assigns.player_id, team_id)
     {:noreply, socket}
@@ -63,7 +71,7 @@ defmodule OpticRedWeb.Live.RoomLive do
 
   @impl true
   def handle_event("leave_game", _params, %{assigns: assigns} = socket) do
-    :ok = OpticRed.remove_player(assigns.room_id, assigns.player_id)
+    :ok = OpticRed.assign_player(assigns.room_id, assigns.player_id, nil)
     {:noreply, socket}
   end
 
@@ -88,9 +96,10 @@ defmodule OpticRedWeb.Live.RoomLive do
   end
 
   @impl true
+
   def handle_info({:team_added, team}, %{assigns: assigns} = socket) do
     ## TODO: Do something when team is added
-    {:noreply, socket}
+    {:noreply, socket |> assign(teams: [team | assigns[:teams]])}
   end
 
   @impl true
@@ -101,8 +110,19 @@ defmodule OpticRedWeb.Live.RoomLive do
 
   @impl true
   def handle_info({:player_assigned, player_id, team_id}, %{assigns: assigns} = socket) do
+    player_team_map = assigns[:player_team_map]
     ## TODO: Do something when player is assigned
-    {:noreply, socket}
+    player_team_map =
+      case team_id do
+        nil ->
+          {_, player_team_map} = player_team_map |> Map.pop(player_id)
+          player_team_map
+
+        _ ->
+          player_team_map |> Map.put(player_id, team_id)
+      end
+
+    {:noreply, socket |> assign(player_team_map: player_team_map)}
   end
 
   @impl true
@@ -130,13 +150,13 @@ defmodule OpticRedWeb.Live.RoomLive do
     Enum.filter(players, fn %{id: id} -> not Enum.member?(Map.keys(data.players), id) end)
   end
 
-  def get_players_in_team(%{data: data}, players, team) do
-    Enum.filter(players, fn %{id: id} ->
-      Enum.member?(Map.keys(data.players), id) and data.players[id] == team
+  def get_players_in_team(players, player_team_map, team_id) do
+    Enum.filter(players, fn %Player{id: id} ->
+      team_id == player_team_map[id]
     end)
   end
 
-  def is_team_joinable?(%{data: data}, teams, team) do
+  def is_team_joinable?(player_team_map, team) do
     ## TODO: Actual logic
     true
   end
@@ -151,20 +171,18 @@ defmodule OpticRedWeb.Live.RoomLive do
 
     %{"player_id" => current_player} = session
     {:ok, players} = OpticRed.get_players(room_id)
+    {:ok, teams} = OpticRed.get_teams(room_id)
 
-    game_state =
-      case OpticRed.get_game_state(room_id) do
-        {:ok, game_state} -> game_state
-        {:error, _} -> nil
-      end
+    {:ok, player_team_map} =
+      OpticRed.get_player_team_map(room_id) |> IO.inspect(label: "PLAYER TEAM MAP")
 
     {:ok,
      assign(socket,
        test: "Hello!",
        players: players,
-       game_state: game_state,
-       current_player: current_player,
-       teams: @teams
+       teams: teams,
+       player_team_map: player_team_map,
+       current_player: current_player
      )}
   end
 

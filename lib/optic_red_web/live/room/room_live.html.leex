@@ -1,9 +1,10 @@
 <% alias OpticRedWeb.Live.RoomLive %>
+<% alias OpticRed.Game.State.Team %>
 
 <ul>
-  <%= for {team_id, team_name} <- [{nil, "Players"} | @teams] do %>
+  <%= for %Team{id: team_id, name: team_name} <- [ %Team{id: nil, name: "Unassigned"} | @teams] do %>
   <h1><%= team_name %></h1>
-  <%= for %{id: player_id, name: name} <- Room.get_players_in_team(@game_state, @players, team_id) do %>
+  <%= for %{id: player_id, name: name} <- RoomLive.get_players_in_team(@players, @player_team_map, team_id) do %>
   <li>
     <%= if player_id == @current_player do %>
     <b>You</b>
@@ -17,9 +18,11 @@
 
 
 <button phx-click="leave_game">Leave game</button>
+<button phx-click="add_team">Add team</button>
 <br>
-<%= for {team_id, team_name} <- @teams do %>
+<%= for %Team{id: team_id, name: team_name} <- @teams do %>
 <button phx-click="join_team" phx-value-team_id="<%= team_id %>"
-  <%= if !is_team_joinable?(@game_state, @teams, team_id), do: "disabled" %>>Join <%= team_name %></button>
+  <%= if !RoomLive.is_team_joinable?(@player_team_map, team_id), do: "disabled" %>>Join <%= team_name %>
+</button>
 <br>
 <% end %>

@@ -182,9 +182,20 @@ defmodule OpticRed.Room do
   def handle_call({:assign_player, player_id, team_id}, _from, data) do
     %{player_team_map: player_team_map} = data
 
-    player_team_map |> Map.put(player_id, team_id)
+    player_team_map =
+      case team_id do
+        nil ->
+          {_, player_team_map} = player_team_map |> Map.pop(player_id)
+          player_team_map
+
+        _ ->
+          player_team_map |> Map.put(player_id, team_id)
+      end
+
     PubSub.broadcast(OpticRed.PubSub, data.room_topic, {:player_assigned, player_id, team_id})
-    {:reply, :ok, %{data | player_team_map: player_team_map}}
+
+    {:reply, :ok,
+     %{data | player_team_map: player_team_map} |> IO.inspect(label: "NEW PLAYER TEAM MAP")}
   end
 
   @impl GenServer
