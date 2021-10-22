@@ -10,12 +10,6 @@ defmodule OpticRedWeb.Live.Components.TeamJoinButton do
   end
 
   def button_disabled?(team, teams, player_team_map, current_player_id) do
-    team_count_map =
-      for %Team{id: team_id} <- teams,
-          do: {team_id, get_player_count(team_id, player_team_map)},
-          into: %{}
-
-    team_count_map |> IO.inspect(label: "WPOWOWOWOWO")
     assigned_player_count = player_team_map |> Enum.count()
     team_count = teams |> Enum.count()
 
@@ -28,7 +22,7 @@ defmodule OpticRedWeb.Live.Components.TeamJoinButton do
           (assigned_player_count - 1) / team_count
       end
 
-    team_count_map[team.id] > team_count_average
+    get_player_count(team.id, player_team_map) > team_count_average
   end
 
   defp get_player_count(team_id, player_team_map) do
@@ -37,7 +31,7 @@ defmodule OpticRedWeb.Live.Components.TeamJoinButton do
   end
 
   def get_classes(team, player_team_map, current_player_id) do
-    ["button", "is-fullwidth", "mb-2"]
+    ["button", "is-medium", "is-rounded", "is-fullwidth"]
     |> add_team_color(team, player_team_map, current_player_id)
     |> Enum.join(" ")
   end

@@ -145,34 +145,25 @@ defmodule OpticRedWeb.Live.RoomLive do
   ### View helpers
   ###
 
-  def get_players_in_team(%{data: data}, players, nil) do
-    Enum.filter(players, fn %{id: id} -> not Enum.member?(Map.keys(data.players), id) end)
-  end
-
-  def get_players_in_team(players, player_team_map, team_id) do
-    Enum.filter(players, fn %Player{id: id} ->
-      team_id == player_team_map[id]
-    end)
-  end
-
   def sort_players_by_team(players, player_team_map, current_player_id) do
     players
     |> Enum.sort_by(&(&1.id != current_player_id), &=/2)
     |> Enum.sort_by(&player_team_map[&1.id], &>=/2)
   end
 
-  def get_join_button_classes(team_id) do
-    team_color =
-      case team_id do
-        "red" -> "is-danger"
-        "blue" -> "is-info"
-      end
+  def game_startable?(player_team_map) do
+    team_players_map =
+      player_team_map
+      |> Enum.group_by(&elem(&1, 1), &elem(&1, 0))
+      |> IO.inspect(label: "GAME STARTABLE")
 
-    "button is-fullwidth #{team_color} mb-2"
-  end
+    has_required_number_of_players =
+      team_players_map
+      |> Enum.all?(fn {team_id, players} -> length(players) >= 2 end)
+      |> IO.inspect(label: "TEAM PLAYERS MAP")
 
-  def is_team_joinable?(team_id, player_team_map) do
-    true
+    Enum.count(team_players_map) |> IO.inspect(label: "number of teams") >= 2 &&
+      has_required_number_of_players
   end
 
   ###

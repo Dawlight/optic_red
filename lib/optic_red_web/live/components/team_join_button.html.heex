@@ -1,20 +1,22 @@
 <% alias OpticRedWeb.Live.Components.TeamJoinButton %>
 
-<%= if @player_team_map[@current_player_id] == @team.id do %>
-<button phx-click="leave_team"
-        class="button is-fullwidth">
-  Leave <%= @team.name %>
-</button>
-<% else %>
-<button phx-click="join_team"
-        phx-value-team_id={@team.id}
-        class={TeamJoinButton.get_classes(@team,
-        @player_team_map,
-        @current_player_id)}
-        disabled={TeamJoinButton.button_disabled?(@team,
-        @teams,
-        @player_team_map,
-        @current_player_id)}>
-  Join <%= @team.name %>
-</button>
-<% end %>
+<div class="column is-6">
+  <%= if @player_team_map[@current_player_id] == @team.id do %>
+  <button phx-click="leave_team"
+          class="button is-medium is-rounded is-fullwidth">
+    Leave
+  </button>
+  <% else %>
+  <button phx-click="join_team"
+          phx-value-team_id={@team.id}
+          class={TeamJoinButton.get_classes(@team,
+          @player_team_map,
+          @current_player_id)}
+          disabled={TeamJoinButton.button_disabled?(@team,
+          @teams,
+          @player_team_map,
+          @current_player_id)}>
+    <%= @team.name %>
+  </button>
+  <% end %>
+</div>
