@@ -5,17 +5,17 @@
 <div>
   <%=
     state = [
-      id: :pre_game,
       teams: @teams,
       players: @players,
       player_team_map: @player_team_map,
-      current_player_id: @current_player_id
+      current_player_id: @current_player_id,
+      game_state: @game_state
     ]
 
     case  get_player_view(@current_player_id, @player_team_map, @game_state) do
-      :pre_game -> live_component(PreGameLive, state)
-      :setup -> live_component(SetupLive, state)
-      :encipher -> live_component(EncipherLive, state)
+      :pre_game -> live_component(PreGameLive, [{:id,:pre_game} | state])
+      :setup -> live_component(SetupLive, [{:id,:setup} | state])
+      :encipher -> live_component(EncipherLive, [{:id,:encipher} | state])
       nil -> "Wut"
     end
   %>

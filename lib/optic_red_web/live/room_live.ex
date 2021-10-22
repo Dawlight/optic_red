@@ -154,14 +154,20 @@ defmodule OpticRedWeb.Live.RoomLive do
   def get_player_view(current_player_id, player_team_map, game_state) do
     team_id = player_team_map[current_player_id]
 
-    case game_state do
+    case current_player_id do
       nil ->
-        :pre_game
+        nil
 
-      %State{current: current} ->
-        case current do
-          :setup -> :setup
-          _ -> nil
+      _ ->
+        case game_state do
+          nil ->
+            :pre_game
+
+          %State{current: current} ->
+            case current do
+              :setup -> :setup
+              _ -> nil
+            end
         end
     end
   end

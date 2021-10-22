@@ -1,5 +1,25 @@
 <div class="p-2"
      style="height: 100%">
+  <div class="content">
+    <h1 class="title is-tex">You will receive a code to encipher</h1>
+    <button class="button is-fullwidth is-rounded is-success is-medium">Start Game</button>
+  </div>
 
-     Setup
+  <% player_team_id = @player_team_map[@current_player_id] %>
+  <%= for {word, index} <- @game_state.data.team_words_map[player_team_id] |> Enum.with_index() do %>
+  <div class="list-item box has-background-danger">
+    <div class="list-item-image">
+      <figure class="image is-64x64">
+        <div
+             style="width: 64px; height: 64px; text-align: center; padding-top: 15px; font-size: 32px; line-height: 32px; background: lightgrey; border-radius: 50%;">
+          <%= index + 1 %>
+        </div>
+      </figure>
+    </div>
+
+    <div class="list-item-content">
+      <div class="list-item-title is-uppercase"><%= word %></div>
+    </div>
+  </div>
+  <% end %>
 </div>
