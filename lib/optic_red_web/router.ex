@@ -22,8 +22,8 @@ defmodule OpticRedWeb.Router do
   scope "/", OpticRedWeb do
     pipe_through :browser
 
-    live "/", Live.LobbyLive, :index, as: "Lobby"
-    live "/room/:room_id", Live.RoomLive, :index, as: "Room"
+    live "/", Live.LobbyLive, :index, as: Lobby
+    live "/room/:room_id", Live.RoomLive, :index, as: Room
   end
 
   # Other scopes may use custom stacks.

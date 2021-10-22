@@ -62,8 +62,6 @@ defmodule OpticRed.Game.State do
     end
   end
 
-  ## TODO: FINISH WHERE I LEFT OFF
-
   ##
   ## Encipher
   ##

@@ -10,7 +10,7 @@ import "../css/app.scss";
 // Import deps with the dep name or local files with a relative path, for example:
 
 import { Socket } from "phoenix";
-import LiveSocket from "phoenix_live_view";
+import { LiveSocket } from "phoenix_live_view";
 import "phoenix_html";
 
 let csrfToken = document
