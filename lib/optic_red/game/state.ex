@@ -16,7 +16,7 @@ defmodule OpticRed.Game.State do
 
   def create_new(teams, players, player_team_map, target_score \\ 2) do
     case teams do
-      teams when length(teams) < 2 ->
+      teams when length(teams) >= 2 ->
         [initial_lead_team | _rest] = teams
         team_words_map = create_team_words_map(teams)
 

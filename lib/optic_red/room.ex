@@ -199,7 +199,8 @@ defmodule OpticRed.Room do
 
   @impl GenServer
   def handle_call({:create_new_game, target_score}, _from, data) do
-    %{games: games, players: players, teams: teams, player_team_map: player_team_map} = data
+    %{games: games, players: players, teams: teams, player_team_map: player_team_map} =
+      data |> IO.inspect(label: "CREATE NEW GAME")
 
     game_state = OpticRed.Game.State.create_new(teams, players, player_team_map, target_score)
     games = [game_state | games]

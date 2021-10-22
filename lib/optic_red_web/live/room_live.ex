@@ -2,6 +2,7 @@ defmodule OpticRedWeb.Live.RoomLive do
   use OpticRedWeb, :live_view
 
   alias Phoenix.PubSub
+  alias OpticRed.Game.State
   alias OpticRed.Game.State.Team
   alias OpticRed.Game.State.Player
 
@@ -11,7 +12,8 @@ defmodule OpticRedWeb.Live.RoomLive do
     teams: [%Team{id: "red", name: "Team Red"}, %Team{id: "blue", name: "Team Blue"}],
     player_team_map: %{},
     current_player_id: nil,
-    room_id: nil
+    room_id: nil,
+    game_state: nil
   }
 
   ###
@@ -68,6 +70,12 @@ defmodule OpticRedWeb.Live.RoomLive do
   end
 
   @impl true
+  def handle_event("start_game", _value, %{assigns: assigns} = socket) do
+    {:ok, game_state} = OpticRed.create_new_game(assigns.room_id, 2)
+    {:noreply, socket}
+  end
+
+  @impl true
   def handle_event("leave_game", _params, %{assigns: assigns} = socket) do
     :ok = OpticRed.assign_player(assigns.room_id, assigns.current_player_id, nil)
     {:noreply, socket}
@@ -79,9 +87,7 @@ defmodule OpticRedWeb.Live.RoomLive do
 
   @impl true
   def handle_info({:game_created, game_state}, %{assigns: assigns} = socket) do
-    ## TODO: Do something when game starts
-
-    {:noreply, socket}
+    {:noreply, socket |> assign(game_state: game_state)}
   end
 
   @impl true
@@ -145,25 +151,19 @@ defmodule OpticRedWeb.Live.RoomLive do
   ### View helpers
   ###
 
-  def sort_players_by_team(players, player_team_map, current_player_id) do
-    players
-    |> Enum.sort_by(&(&1.id != current_player_id), &=/2)
-    |> Enum.sort_by(&player_team_map[&1.id], &>=/2)
-  end
+  def get_player_view(current_player_id, player_team_map, game_state) do
+    team_id = player_team_map[current_player_id]
 
-  def game_startable?(player_team_map) do
-    team_players_map =
-      player_team_map
-      |> Enum.group_by(&elem(&1, 1), &elem(&1, 0))
-      |> IO.inspect(label: "GAME STARTABLE")
+    case game_state do
+      nil ->
+        :pre_game
 
-    has_required_number_of_players =
-      team_players_map
-      |> Enum.all?(fn {team_id, players} -> length(players) >= 2 end)
-      |> IO.inspect(label: "TEAM PLAYERS MAP")
-
-    Enum.count(team_players_map) |> IO.inspect(label: "number of teams") >= 2 &&
-      has_required_number_of_players
+      %State{current: current} ->
+        case current do
+          :setup -> :setup
+          _ -> nil
+        end
+    end
   end
 
   ###
@@ -177,17 +177,24 @@ defmodule OpticRedWeb.Live.RoomLive do
     %{"player_id" => current_player_id} = session
     {:ok, players} = OpticRed.get_players(room_id)
     {:ok, teams} = OpticRed.get_teams(room_id)
-
     {:ok, player_team_map} = OpticRed.get_player_team_map(room_id)
 
-    {:ok,
-     assign(socket,
-       test: "Hello!",
-       players: players,
-       teams: teams,
-       player_team_map: player_team_map,
-       current_player_id: current_player_id
-     )}
+    game_state =
+      case OpticRed.get_game_state(room_id) do
+        {:ok, game_state} -> game_state
+        {:error, _} -> nil
+      end
+
+    {:ok, view} =
+      {:ok,
+       assign(socket,
+         test: "Hello!",
+         players: players,
+         teams: teams,
+         player_team_map: player_team_map,
+         current_player_id: current_player_id,
+         game_state: game_state
+       )}
   end
 
   defp subscribe_to_room(room_id) do

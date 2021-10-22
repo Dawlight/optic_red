@@ -1,14 +1,29 @@
-<head>
-  <h1>
-    Optic Red
+<div class="p-2"
+     style="height: 100%">
+
+  <% alias OpticRedWeb.Live.Components.PlayerItem %>
+  <% alias OpticRedWeb.Live.Components.TeamJoinButton %>
+  <h1 class="title is-1">
+    Play OpticRed
   </h1>
-</head>
-<main>
-  <div>
-    <button phx-click="new_room">New Game</button>
+  <div class="content">
+    <button phx-click="new_room"
+            class="button is-rounded is-success is-fullwidth is-medium">
+      New Game
+    </button>
   </div>
-  <div>
-    <input type="text">
-    <button phx-click="join_room">Join Game</button>
+  <div class="is-divider"
+       data-content="OR"></div>
+  <div class="content">
+    <div class="field">
+      <input type="text"
+             class="input has-text-centered is-size-3 is-rounded is-uppercase">
+    </div>
+    <div class="field">
+      <button phx-click="join_room"
+              class="button is-rounded is-success is-fullwidth is-medium">
+        Join Game
+      </button>
+    </div>
   </div>
-</main>
+</div>

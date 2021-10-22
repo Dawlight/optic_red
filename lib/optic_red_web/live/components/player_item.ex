@@ -10,12 +10,12 @@ defmodule OpticRedWeb.Live.Components.PlayerItem do
 
   def get_classes(player, player_team_map, current_player_id) do
     []
-    |> add_team_color(player, player_team_map)
+    |> add_team_color(player, player_team_map, current_player_id)
     |> add_highlight(player, current_player_id)
     |> Enum.join(" ")
   end
 
-  defp add_team_color(classes, player, player_team_map) do
+  defp add_team_color(classes, player, player_team_map, current_player_id) do
     case player_team_map[player.id] do
       "red" -> ["is-danger" | classes]
       "blue" -> ["is-info" | classes]
@@ -25,7 +25,7 @@ defmodule OpticRedWeb.Live.Components.PlayerItem do
 
   defp add_highlight(classes, player, current_player_id) do
     case player.id == current_player_id do
-      true -> ["is-highlighted" | classes]
+      true -> ["has-text-weight-bold" | classes]
       false -> classes
     end
   end
