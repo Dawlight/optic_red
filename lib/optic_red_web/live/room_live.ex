@@ -8,10 +8,9 @@ defmodule OpticRedWeb.Live.RoomLive do
   @default_assigns %{
     test: "Hello!",
     players: [],
-    teams: [],
+    teams: [%Team{id: "red", name: "Team Red"}, %Team{id: "blue", name: "Team Blue"}],
     player_team_map: %{},
-    current_player: nil,
-    player_id: nil,
+    current_player_id: nil,
     room_id: nil
   }
 
@@ -26,7 +25,7 @@ defmodule OpticRedWeb.Live.RoomLive do
 
     case connected?(socket) do
       true ->
-        socket = assign(socket, player_id: player_id, room_id: room_id)
+        socket = socket |> assign(current_player_id: player_id, room_id: room_id)
 
         case OpticRed.Room.exists?(room_id) do
           false ->
@@ -57,21 +56,20 @@ defmodule OpticRedWeb.Live.RoomLive do
   ###
 
   @impl true
-  def handle_event("add_team", _values, %{assigns: assigns} = socket) do
-    team_id = :crypto.strong_rand_bytes(8) |> Base.url_encode64(padding: false)
-    {:ok, _team} = OpticRed.add_team(assigns.room_id, team_id, "Team #{team_id}")
+  def handle_event("join_team", %{"team_id" => team_id}, %{assigns: assigns} = socket) do
+    :ok = OpticRed.assign_player(assigns.room_id, assigns.current_player_id, team_id)
     {:noreply, socket}
   end
 
   @impl true
-  def handle_event("join_team", %{"team_id" => team_id}, %{assigns: assigns} = socket) do
-    :ok = OpticRed.assign_player(assigns.room_id, assigns.player_id, team_id)
+  def handle_event("leave_team", _values, %{assigns: assigns} = socket) do
+    :ok = OpticRed.assign_player(assigns.room_id, assigns.current_player_id, nil)
     {:noreply, socket}
   end
 
   @impl true
   def handle_event("leave_game", _params, %{assigns: assigns} = socket) do
-    :ok = OpticRed.assign_player(assigns.room_id, assigns.player_id, nil)
+    :ok = OpticRed.assign_player(assigns.room_id, assigns.current_player_id, nil)
     {:noreply, socket}
   end
 
@@ -82,6 +80,7 @@ defmodule OpticRedWeb.Live.RoomLive do
   @impl true
   def handle_info({:game_created, game_state}, %{assigns: assigns} = socket) do
     ## TODO: Do something when game starts
+
     {:noreply, socket}
   end
 
@@ -137,7 +136,7 @@ defmodule OpticRedWeb.Live.RoomLive do
   @impl true
   def terminate(_, %{assigns: assigns} = socket) do
     IO.inspect(socket, label: "Terminate")
-    OpticRed.remove_player(assigns.room_id, assigns.player_id)
+    OpticRed.remove_player(assigns.room_id, assigns.current_player_id)
     PubSub.unsubscribe(OpticRed.PubSub, room_topic(assigns.room_id))
     :shutdown
   end
@@ -156,8 +155,23 @@ defmodule OpticRedWeb.Live.RoomLive do
     end)
   end
 
-  def is_team_joinable?(player_team_map, team) do
-    ## TODO: Actual logic
+  def sort_players_by_team(players, player_team_map, current_player_id) do
+    players
+    |> Enum.sort_by(&(&1.id != current_player_id), &=/2)
+    |> Enum.sort_by(&player_team_map[&1.id], &>=/2)
+  end
+
+  def get_join_button_classes(team_id) do
+    team_color =
+      case team_id do
+        "red" -> "is-danger"
+        "blue" -> "is-info"
+      end
+
+    "button is-fullwidth #{team_color} mb-2"
+  end
+
+  def is_team_joinable?(team_id, player_team_map) do
     true
   end
 
@@ -169,12 +183,11 @@ defmodule OpticRedWeb.Live.RoomLive do
     subscribe_to_room(room_id)
     subscribe_to_game(room_id)
 
-    %{"player_id" => current_player} = session
+    %{"player_id" => current_player_id} = session
     {:ok, players} = OpticRed.get_players(room_id)
     {:ok, teams} = OpticRed.get_teams(room_id)
 
-    {:ok, player_team_map} =
-      OpticRed.get_player_team_map(room_id) |> IO.inspect(label: "PLAYER TEAM MAP")
+    {:ok, player_team_map} = OpticRed.get_player_team_map(room_id)
 
     {:ok,
      assign(socket,
@@ -182,7 +195,7 @@ defmodule OpticRedWeb.Live.RoomLive do
        players: players,
        teams: teams,
        player_team_map: player_team_map,
-       current_player: current_player
+       current_player_id: current_player_id
      )}
   end
 

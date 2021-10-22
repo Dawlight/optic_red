@@ -14,8 +14,7 @@ defmodule OpticRed.Room do
   end
 
   def exists?(room_id) do
-    case :gproc.where(get_room_name(room_id))
-         |> IO.inspect(label: "Does room #{room_id} exsist?") do
+    case :gproc.where(get_room_name(room_id)) do
       :undefined -> false
       _pid -> true
     end
@@ -109,7 +108,7 @@ defmodule OpticRed.Room do
     initial_state = %{
       room_id: room_id,
       players: [],
-      teams: [],
+      teams: [%Team{id: "red", name: "Team Red"}, %Team{id: "blue", name: "Team Blue"}],
       player_team_map: %{},
       room_topic: "room:#{room_id}",
       games: []

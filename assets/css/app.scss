@@ -3,6 +3,14 @@
 @import "../node_modules/bulma-block-list//src/block-list.scss";
 @import "../node_modules/bulma-list/sass/bulma-list.sass";
 
+body, .phx-connected {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+}
+
+
 /* Alerts and form errors */
 .alert {
   padding: 15px;
