@@ -160,8 +160,12 @@ defmodule OpticRedWeb.Live.RoomLive do
   ### View helpers
   ###
 
-  def get_player_view(current_player_id, player_team_map, game_state) do
-    team_id = player_team_map[current_player_id]
+  def get_player_view(assigns) do
+    current_player_id = assigns[:current_player_id]
+    player_team_map = assigns[:player_team_map]
+    game_state = assigns[:game_state]
+
+    # team_id = player_team_map[current_player_id]
 
     case current_player_id do
       nil ->
@@ -178,6 +182,13 @@ defmodule OpticRedWeb.Live.RoomLive do
               _ -> nil
             end
         end
+    end
+  end
+
+  def page_loader_classes(assigns) do
+    case get_player_view(assigns) do
+      nil -> "pageloader is-active"
+      _ -> "pageloader"
     end
   end
 

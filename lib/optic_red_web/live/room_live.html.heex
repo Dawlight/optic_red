@@ -3,6 +3,7 @@
 <% alias OpticRedWeb.Live.EncipherLive %>
 
 <div>
+  <div class={page_loader_classes(assigns)}><span class="title">Loading</span></div>
   <%=
     state = [
       teams: @teams,
@@ -12,7 +13,7 @@
       game_state: @game_state
     ]
 
-    case  get_player_view(@current_player_id, @player_team_map, @game_state) do
+    case  get_player_view(assigns) do
       :pre_game -> live_component(PreGameLive, [{:id,:pre_game} | state])
       :setup -> live_component(SetupLive, [{:id,:setup} | state])
       :encipher -> live_component(EncipherLive, [{:id,:encipher} | state])
