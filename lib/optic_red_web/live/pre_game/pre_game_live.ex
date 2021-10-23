@@ -16,13 +16,19 @@ defmodule OpticRedWeb.Live.PreGameLive do
     {:ok, assign(socket, assigns)}
   end
 
-  def sort_players_by_team(players, player_team_map, current_player_id) do
+  def players_sorted_by_team(assigns) do
+    players = assigns[:players]
+    current_player_id = assigns[:current_player_id]
+    player_team_map = assigns[:player_team_map]
+
     players
     |> Enum.sort_by(&(&1.id != current_player_id), &=/2)
     |> Enum.sort_by(&player_team_map[&1.id], &>=/2)
   end
 
-  def game_startable?(player_team_map) do
+  def game_startable?(assigns) do
+    player_team_map = assigns[:player_team_map]
+
     team_players_map =
       player_team_map
       |> Enum.group_by(&elem(&1, 1), &elem(&1, 0))

@@ -35,7 +35,8 @@ defmodule OpticRed.Game.State do
             lead_team_id: initial_lead_team.id,
             team_words_map: team_words_map,
             target_score: target_score,
-            team_score_map: team_score_map
+            team_score_map: team_score_map,
+            ready_players: []
           }
         }
 
@@ -44,15 +45,45 @@ defmodule OpticRed.Game.State do
     end
   end
 
+  def set_player_ready(%__MODULE__{data: data, current: current} = state, player_id, ready?) do
+    case current do
+      :setup ->
+        %Data{ready_players: ready_players, player_map: player_map, rounds: rounds} = data
+
+        case ready? do
+          true ->
+            ready_players = [player_id | ready_players] |> Enum.uniq()
+
+            case Enum.count(ready_players) == Enum.count(player_map) do
+              true ->
+                rounds = [create_new_round(data) | rounds]
+                data = %Data{data | ready_players: ready_players, rounds: rounds}
+
+                %__MODULE__{state | data: data, current: :encipher}
+
+              false ->
+                %__MODULE__{state | data: %Data{data | ready_players: ready_players}}
+            end
+
+          false ->
+            ready_players = ready_players |> List.delete(player_id)
+            %__MODULE__{state | data: %Data{data | ready_players: ready_players}}
+        end
+
+      _ ->
+        {:error, "Can't ready players outside of setup"}
+    end
+  end
+
   def new_round(%__MODULE__{data: data, current: current} = state) do
     %Data{rounds: rounds} = data
 
     case minimum_number_of_players?(state) do
       true ->
-        if current in [:setup, :round_end] do
+        if current in [:round_end] do
           rounds = [create_new_round(data) | rounds]
 
-          %{state | data: %{data | rounds: rounds}, current: :encipher}
+          %__MODULE__{state | data: %Data{data | rounds: rounds}, current: :encipher}
         else
           {:error, "Can't start new round in the middle of an ongoing round"}
         end

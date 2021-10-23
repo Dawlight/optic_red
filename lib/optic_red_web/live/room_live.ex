@@ -54,39 +54,11 @@ defmodule OpticRedWeb.Live.RoomLive do
   end
 
   ###
-  ### DOM Events
-  ###
-
-  @impl true
-  def handle_event("join_team", %{"team_id" => team_id}, %{assigns: assigns} = socket) do
-    :ok = OpticRed.assign_player(assigns.room_id, assigns.current_player_id, team_id)
-    {:noreply, socket}
-  end
-
-  @impl true
-  def handle_event("leave_team", _values, %{assigns: assigns} = socket) do
-    :ok = OpticRed.assign_player(assigns.room_id, assigns.current_player_id, nil)
-    {:noreply, socket}
-  end
-
-  @impl true
-  def handle_event("start_game", _value, %{assigns: assigns} = socket) do
-    {:ok, game_state} = OpticRed.create_new_game(assigns.room_id, 2)
-    {:noreply, socket}
-  end
-
-  @impl true
-  def handle_event("leave_game", _params, %{assigns: assigns} = socket) do
-    :ok = OpticRed.assign_player(assigns.room_id, assigns.current_player_id, nil)
-    {:noreply, socket}
-  end
-
-  ###
   ### PubSub Messages
   ###
 
   @impl true
-  def handle_info({:game_created, game_state}, %{assigns: assigns} = socket) do
+  def handle_info({:game_created, game_state}, socket) do
     {:noreply, socket |> assign(game_state: game_state)}
   end
 
@@ -98,19 +70,6 @@ defmodule OpticRedWeb.Live.RoomLive do
   @impl true
   def handle_info({:player_removed, player}, %{assigns: assigns} = socket) do
     {:noreply, assign(socket, players: List.delete(assigns.players, player))}
-  end
-
-  @impl true
-
-  def handle_info({:team_added, team}, %{assigns: assigns} = socket) do
-    ## TODO: Do something when team is added
-    {:noreply, socket |> assign(teams: [team | assigns[:teams]])}
-  end
-
-  @impl true
-  def handle_info({:team_removed, team}, %{assigns: assigns} = socket) do
-    ## TODO: Do something when team is removed
-    {:noreply, socket}
   end
 
   @impl true
@@ -131,8 +90,58 @@ defmodule OpticRedWeb.Live.RoomLive do
   end
 
   @impl true
-  def handle_info({:game_state_updated, game_state}, socket) do
-    {:noreply, assign(socket, game_state: game_state)}
+  def handle_info({:player_ready_changed, game_state}, socket) do
+    case game_state.current do
+      :encipher ->
+        {:noreply, redirect(socket, external: "http://www.google.com")}
+
+      :setup ->
+        {:noreply, assign(socket, game_state: game_state)}
+    end
+  end
+
+  ###
+  ### DOM Events
+  ###
+
+  @impl true
+  def handle_event("join_team", %{"team_id" => team_id}, %{assigns: assigns} = socket) do
+    :ok = OpticRed.assign_player(assigns.room_id, assigns.current_player_id, team_id)
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("leave_team", _values, %{assigns: assigns} = socket) do
+    :ok = OpticRed.assign_player(assigns.room_id, assigns.current_player_id, nil)
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("start_game", _value, %{assigns: assigns} = socket) do
+    {:ok, _game_state} = OpticRed.create_new_game(assigns.room_id, 2)
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("leave_game", _params, %{assigns: assigns} = socket) do
+    :ok = OpticRed.assign_player(assigns.room_id, assigns.current_player_id, nil)
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("ready_toggle", %{"ready" => ready?} = values, %{assigns: assigns} = socket) do
+    case ready? do
+      "true" ->
+        {:ok, _} = OpticRed.set_player_ready(assigns.room_id, assigns.current_player_id, true)
+        {:noreply, socket}
+
+      "false" ->
+        {:ok, _} = OpticRed.set_player_ready(assigns.room_id, assigns.current_player_id, false)
+        {:noreply, socket}
+
+      _ ->
+        {:noreply, socket}
+    end
   end
 
   ###

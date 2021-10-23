@@ -96,6 +96,10 @@ defmodule OpticRed do
     OpticRed.Room.create_new_game(room_id, target_score)
   end
 
+  def set_player_ready(room_id, player_id, ready?) do
+    OpticRed.Room.set_player_ready(room_id, player_id, ready?)
+  end
+
   @doc """
   Get current game state
 

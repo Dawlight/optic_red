@@ -8,6 +8,7 @@ defmodule OpticRed.Game.State.Data do
     player_map: %{},
     player_team_map: %{},
     team_words_map: %{},
-    team_score_map: %{}
+    team_score_map: %{},
+    ready_players: []
   ]
 end

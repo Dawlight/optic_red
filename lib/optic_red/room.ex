@@ -2,6 +2,7 @@ defmodule OpticRed.Room do
   use GenServer
 
   alias Phoenix.PubSub
+  alias OpticRed.Game.State
   alias OpticRed.Game.State.Team
   alias OpticRed.Game.State.Player
 
@@ -62,6 +63,13 @@ defmodule OpticRed.Room do
     end
   end
 
+  def set_player_ready(room_id, player_id, ready?) do
+    case :gproc.where(get_room_name(room_id)) do
+      :undefined -> {:error, :room_not_found}
+      pid -> GenServer.call(pid, {:set_player_ready, player_id, ready?})
+    end
+  end
+
   def get_current_game(room_id) do
     case :gproc.where(get_room_name(room_id)) do
       :undefined -> {:error, :room_not_found}
@@ -105,10 +113,12 @@ defmodule OpticRed.Room do
   def init(room_id) do
     IO.inspect('Init run!')
 
+    teams = [%Team{id: "red", name: "Team Red"}, %Team{id: "blue", name: "Team Blue"}]
+
     initial_state = %{
       room_id: room_id,
       players: [],
-      teams: [%Team{id: "red", name: "Team Red"}, %Team{id: "blue", name: "Team Blue"}],
+      teams: teams,
       player_team_map: %{},
       room_topic: "room:#{room_id}",
       games: []
@@ -131,7 +141,7 @@ defmodule OpticRed.Room do
 
       false ->
         players = Enum.uniq([player | players])
-        PubSub.broadcast(OpticRed.PubSub, data.room_topic, {:player_added, player})
+        broadcast(data.room_topic, {:player_added, player})
         {:reply, {:ok, player}, %{data | players: players}}
     end
   end
@@ -144,7 +154,7 @@ defmodule OpticRed.Room do
 
       player ->
         players = players |> List.delete(player)
-        PubSub.broadcast(OpticRed.PubSub, data.room_topic, {:player_removed, player})
+        broadcast(data.room_topic, {:player_removed, player})
         {:reply, {:ok, player}, %{data | players: players}}
     end
   end
@@ -159,7 +169,7 @@ defmodule OpticRed.Room do
 
       false ->
         teams = Enum.uniq([team | teams])
-        PubSub.broadcast(OpticRed.PubSub, data.room_topic, {:team_added, team})
+        broadcast(data.room_topic, {:team_added, team})
         {:reply, {:ok, team}, %{data | teams: teams}}
     end
   end
@@ -172,7 +182,7 @@ defmodule OpticRed.Room do
 
       team ->
         teams = teams |> List.delete(team)
-        PubSub.broadcast(OpticRed.PubSub, data.room_topic, {:team_removed, team})
+        broadcast(data.room_topic, {:team_removed, team})
         {:reply, {:ok, team}, %{data | teams: teams}}
     end
   end
@@ -191,21 +201,39 @@ defmodule OpticRed.Room do
           player_team_map |> Map.put(player_id, team_id)
       end
 
-    PubSub.broadcast(OpticRed.PubSub, data.room_topic, {:player_assigned, player_id, team_id})
-
-    {:reply, :ok,
-     %{data | player_team_map: player_team_map} |> IO.inspect(label: "NEW PLAYER TEAM MAP")}
+    broadcast(data.room_topic, {:player_assigned, player_id, team_id})
+    {:reply, :ok, %{data | player_team_map: player_team_map}}
   end
+
+  ##
+  ## Start game
+  ##
 
   @impl GenServer
   def handle_call({:create_new_game, target_score}, _from, data) do
     %{games: games, players: players, teams: teams, player_team_map: player_team_map} =
       data |> IO.inspect(label: "CREATE NEW GAME")
 
-    game_state = OpticRed.Game.State.create_new(teams, players, player_team_map, target_score)
+    game_state = State.create_new(teams, players, player_team_map, target_score)
     games = [game_state | games]
-    PubSub.broadcast(OpticRed.PubSub, data.room_topic, {:game_created, game_state})
+
+    broadcast(data.room_topic, {:game_created, game_state})
     {:reply, {:ok, game_state}, %{data | games: games}}
+  end
+
+  ##
+  ## Started game
+  ##
+
+  @impl GenServer
+  def handle_call({:set_player_ready, player_id, ready?}, _from, data) do
+    %{games: games} = data
+
+    [current_game | previous_games] = games
+    current_game = current_game |> State.set_player_ready(player_id, ready?)
+
+    broadcast(data.room_topic, {:player_ready_changed, current_game})
+    {:reply, {:ok, current_game}, %{data | games: [current_game | previous_games]}}
   end
 
   @impl GenServer
@@ -249,6 +277,10 @@ defmodule OpticRed.Room do
   ##
   ## Private
   ##
+
+  defp broadcast(topic, message) do
+    PubSub.broadcast(OpticRed.PubSub, topic, message)
+  end
 
   defp get_room_name(room_id) do
     {:n, :l, {:room, room_id}}

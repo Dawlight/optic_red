@@ -16,7 +16,7 @@
       <div class="column is-12">
         <button phx-click="start_game"
                 class="button is-success is-medium is-rounded is-fullwidth"
-                disabled={!game_startable?(@player_team_map)}>
+                disabled={!game_startable?(assigns)}>
           Start game
         </button>
       </div>
@@ -26,7 +26,7 @@
   <div class="content">
     <h5 class="title is-5">Players</h5>
     <ul class="block-list is-small  is-centered">
-      <% sorted_players = @players |> sort_players_by_team(@player_team_map, @current_player_id) %>
+      <% sorted_players = players_sorted_by_team(assigns) %>
       <%= for player <- sorted_players do %>
       <PlayerItem.render player={player}
                          player_team_map={@player_team_map}
