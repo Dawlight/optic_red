@@ -1,5 +1,11 @@
 <div class="p-2"
      style="height: 100%">
+  <%=
+    case @role do
 
+      :active -> "You are the man"
+      :passive -> "You are just a pleb"
+    end
+  %>
 
 </div>

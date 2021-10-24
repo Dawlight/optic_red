@@ -3,6 +3,7 @@ defmodule OpticRedWeb.Live.RoomLive do
 
   alias Phoenix.PubSub
   alias OpticRed.Game.State
+  alias OpticRed.Game.State.Data
   alias OpticRed.Game.State.Team
   alias OpticRed.Game.State.Player
 
@@ -91,13 +92,7 @@ defmodule OpticRedWeb.Live.RoomLive do
 
   @impl true
   def handle_info({:player_ready_changed, game_state}, socket) do
-    case game_state.current do
-      :encipher ->
-        {:noreply, redirect(socket, external: "http://www.google.com")}
-
-      :setup ->
-        {:noreply, assign(socket, game_state: game_state)}
-    end
+    {:noreply, assign(socket, game_state: game_state)}
   end
 
   ###
@@ -165,7 +160,7 @@ defmodule OpticRedWeb.Live.RoomLive do
     player_team_map = assigns[:player_team_map]
     game_state = assigns[:game_state]
 
-    # team_id = player_team_map[current_player_id]
+    team_id = player_team_map[current_player_id]
 
     case current_player_id do
       nil ->
@@ -176,10 +171,29 @@ defmodule OpticRedWeb.Live.RoomLive do
           nil ->
             :pre_game
 
-          %State{current: current} ->
-            case current do
-              :setup -> :setup
-              _ -> nil
+          %State{current: current_state, data: data} ->
+            %Data{rounds: rounds} = data
+
+            case current_state do
+              :setup ->
+                :setup
+
+              :encipher ->
+                [current_round | _previous_rounds] = rounds
+
+                current_player_team_encipherer_player_id =
+                  current_round[team_id].encipherer_player_id
+
+                case current_player_team_encipherer_player_id do
+                  ^current_player_id ->
+                    {:encipher, :active}
+
+                  _ ->
+                    {:encipher, :passive}
+                end
+
+              _ ->
+                nil
             end
         end
     end
