@@ -100,6 +100,10 @@ defmodule OpticRed do
     OpticRed.Room.set_player_ready(room_id, player_id, ready?)
   end
 
+  def submit_clues(room_id, team_id, clues) do
+    OpticRed.Room.submit_clues(room_id, team_id, clues)
+  end
+
   @doc """
   Get current game state
 

@@ -95,6 +95,12 @@ defmodule OpticRedWeb.Live.RoomLive do
     {:noreply, assign(socket, game_state: game_state)}
   end
 
+  @impl true
+  def handle_info({:clues_submitted, game_state}, socket) do
+    {:noreply,
+     assign(socket, game_state: game_state |> IO.inspect(label: "C L U E S  S U B M I T T E D"))}
+  end
+
   ###
   ### DOM Events
   ###
@@ -124,7 +130,7 @@ defmodule OpticRedWeb.Live.RoomLive do
   end
 
   @impl true
-  def handle_event("ready_toggle", %{"ready" => ready?} = values, %{assigns: assigns} = socket) do
+  def handle_event("ready_toggle", %{"ready" => ready?} = _values, %{assigns: assigns} = socket) do
     case ready? do
       "true" ->
         {:ok, _} = OpticRed.set_player_ready(assigns.room_id, assigns.current_player_id, true)
@@ -137,6 +143,19 @@ defmodule OpticRedWeb.Live.RoomLive do
       _ ->
         {:noreply, socket}
     end
+  end
+
+  @impl true
+  def handle_event("submit_clues", %{"clues" => clues}, %{assigns: assigns} = socket) do
+    clues = clues |> Enum.map(fn {_, clue} -> clue end)
+
+    current_player_id = assigns[:current_player_id]
+    player_team_map = assigns[:player_team_map]
+
+    current_team_id = player_team_map[current_player_id]
+
+    {:ok, _} = OpticRed.submit_clues(assigns.room_id, current_team_id, clues)
+    {:noreply, socket}
   end
 
   ###

@@ -1,11 +1,36 @@
-<div class="p-2"
+<div class="p-2 has-text-centered"
      style="height: 100%">
-  <%=
-    case @role do
-
-      :active -> "You are the man"
-      :passive -> "You are just a pleb"
-    end
-  %>
-
+  <%= case @role do %>
+    <% :active -> %>
+    <%= if has_team_submitted?(assigns) do %>
+      <h2 class="title is-2">Great! Now we're just waiting for the other team to finnish!</h2>
+    <% else %> %>
+      <div>
+        <% code = code(assigns) %>
+        <h2 class="title is-2">Your code is</h2>
+        <h1 class="title is-1"><%= code |> Enum.join(" ")  %></h1>
+        <form phx-submit="submit_clues">
+          <%= for {number, index} <- code |> Enum.with_index() do %>
+            <% word = words(assigns) |> Enum.fetch!(number - 1) %>
+            <div class="box content has-text-centered">
+              <h2 class="title">Input a clue for Word <%= number %> <span class="is-uppercase"> <br/>
+                  <%= word %></span></h2>
+              <div class="field">
+                <div class="control">
+                  <input name={"clues[#{index}]"} class="input is-uppercase has-text-centered has-fontweight-bold" type="text" placeholder={"Clue for #{String.capitalize(word)}"}>
+                </div>
+              </div>
+            </div>
+          <% end %>
+          <button type="submit" class="button is-fullwidth is-medium is-rounded is-success">Submit!</button>
+        </form>
+      </div>
+    <% end %>
+    <% :passive -> %>
+    <%= if has_team_submitted?(assigns) do %>
+      <h1 class="title">Your good friend <%= get_encipher_player_name(assigns) %> has got some great clues for ya</h1>
+    <% else %>
+      <h1 class="title">Your good friend <%= get_encipher_player_name(assigns) %> is coming up with some great clues right now. Please be patient!</h1>
+    <% end %>
+  <% end %>
 </div>
