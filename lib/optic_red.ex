@@ -104,6 +104,10 @@ defmodule OpticRed do
     OpticRed.Room.submit_clues(room_id, team_id, clues)
   end
 
+  def submit_attempt(room_id, team_id, attempt_numbers) do
+    OpticRed.Room.submit_attempt(room_id, team_id, attempt_numbers)
+  end
+
   @doc """
   Get current game state
 

@@ -148,7 +148,7 @@ defmodule OpticRed.Game.State do
 
               false ->
                 data = %Data{data | lead_team_id: next_lead_team.id}
-                %__MODULE__{state | data: data, current: :encipher}
+                %__MODULE__{state | data: data, current: :round_end}
 
                 # {:next_state, :encipher, data, {:reply, from, {:ok, state, data}}}
             end

@@ -1,6 +1,7 @@
 <% alias OpticRedWeb.Live.PreGameLive %>
 <% alias OpticRedWeb.Live.SetupLive %>
 <% alias OpticRedWeb.Live.EncipherLive %>
+<% alias OpticRedWeb.Live.DecipherLive %>
 <div>
   <div class={page_loader_classes(assigns)}><span class="title">Loading</span></div>
   <%=
@@ -16,6 +17,7 @@
       :pre_game -> live_component(PreGameLive, [{:id,:pre_game} | state])
       :setup -> live_component(SetupLive, [{:id,:setup} | state])
       {:encipher, role} -> live_component(EncipherLive, [{:id,:encipher} | [{:role, role} | state]])
+      {:decipher, role} -> live_component(DecipherLive, [{:id,:decipher} | [{:role, role} | state]])
       nil -> "Wut"
     end
   %>

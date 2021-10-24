@@ -5,7 +5,6 @@ defmodule OpticRedWeb.Live.RoomLive do
   alias OpticRed.Game.State
   alias OpticRed.Game.State.Data
   alias OpticRed.Game.State.Team
-  alias OpticRed.Game.State.Player
 
   @default_assigns %{
     test: "Hello!",
@@ -101,6 +100,14 @@ defmodule OpticRedWeb.Live.RoomLive do
      assign(socket, game_state: game_state |> IO.inspect(label: "C L U E S  S U B M I T T E D"))}
   end
 
+  @impl true
+  def handle_info({:attempt_submitted, game_state}, socket) do
+    {:noreply,
+     assign(socket,
+       game_state: game_state |> IO.inspect(label: "A T T E M P T  S U B M I T T E D")
+     )}
+  end
+
   ###
   ### DOM Events
   ###
@@ -158,6 +165,20 @@ defmodule OpticRedWeb.Live.RoomLive do
     {:noreply, socket}
   end
 
+  @impl true
+  def handle_event("submit_attempt", values, %{assigns: assigns} = socket) do
+    %{"attempt_numbers" => attempt_numbers} = values
+    attempt_numbers = attempt_numbers |> Enum.map(fn {_, number} -> number end)
+
+    current_player_id = assigns[:current_player_id]
+    player_team_map = assigns[:player_team_map]
+
+    current_team_id = player_team_map[current_player_id]
+
+    {:ok, _} = OpticRed.submit_attempt(assigns.room_id, current_team_id, attempt_numbers)
+    {:noreply, socket}
+  end
+
   ###
   ### Terminate
   ### TODO: Monitor instead of terminate
@@ -179,7 +200,7 @@ defmodule OpticRedWeb.Live.RoomLive do
     player_team_map = assigns[:player_team_map]
     game_state = assigns[:game_state]
 
-    team_id = player_team_map[current_player_id]
+    current_team_id = player_team_map[current_player_id]
 
     case current_player_id do
       nil ->
@@ -191,7 +212,7 @@ defmodule OpticRedWeb.Live.RoomLive do
             :pre_game
 
           %State{current: current_state, data: data} ->
-            %Data{rounds: rounds} = data
+            %Data{rounds: rounds, lead_team_id: lead_team_id} = data
 
             case current_state do
               :setup ->
@@ -201,7 +222,7 @@ defmodule OpticRedWeb.Live.RoomLive do
                 [current_round | _previous_rounds] = rounds
 
                 current_player_team_encipherer_player_id =
-                  current_round[team_id].encipherer_player_id
+                  current_round[current_team_id].encipherer_player_id
 
                 case current_player_team_encipherer_player_id do
                   ^current_player_id ->
@@ -209,6 +230,19 @@ defmodule OpticRedWeb.Live.RoomLive do
 
                   _ ->
                     {:encipher, :passive}
+                end
+
+              :decipher ->
+                [current_round | _previous_rounds] = rounds
+
+                lead_team_encipherer_player_id = current_round[lead_team_id].encipherer_player_id
+
+                case lead_team_encipherer_player_id do
+                  ^current_player_id ->
+                    {:decipher, :passive}
+
+                  _ ->
+                    {:decipher, :active}
                 end
 
               _ ->

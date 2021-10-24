@@ -1,0 +1,30 @@
+<div class="p-2 has-text-centered"
+     style="height: 100%">
+  <%= case @role do %>
+    <% :active -> %>
+    <%= if lead_team_id(assigns) == current_team_id(assigns) do %>
+      Now we're trying to guess your team's code!
+    <% else %>
+      Now we're trying to guess <%= lead_team_name(assigns) %>'s code!
+    <% end %>
+    <form phx-submit="submit_attempt">
+      <%= for {clue, index} <- lead_team_clues(assigns) |> Enum.with_index() do %>
+        <div class="box content has-text-centered">
+          <h2 class="title">Input a number for Clue <%= index + 1 %>
+            <span class="is-uppercase">
+              <br/>
+              <%= clue %>
+            </span></h2>
+          <div class="field">
+            <div class="control">
+              <input name={"attempt_numbers[#{index}]"} class="input is-uppercase has-text-centered has-fontweight-bold" type="text" placeholder={"Number for #{String.capitalize(clue)}"}>
+            </div>
+          </div>
+        </div>
+      <% end %>
+      <button type="submit" class="button is-fullwidth is-medium is-rounded is-success">Submit!</button>
+    </form>
+    <% :passive -> %>
+    Everyone is trying to guess your code now :D!
+  <% end %>
+</div>

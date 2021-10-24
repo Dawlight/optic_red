@@ -77,6 +77,13 @@ defmodule OpticRed.Room do
     end
   end
 
+  def submit_attempt(room_id, team_id, attempt_numbers) do
+    case :gproc.where(get_room_name(room_id)) do
+      :undefined -> {:error, :room_not_found}
+      pid -> GenServer.call(pid, {:submit_attempt, team_id, attempt_numbers})
+    end
+  end
+
   def get_current_game(room_id) do
     case :gproc.where(get_room_name(room_id)) do
       :undefined -> {:error, :room_not_found}
@@ -251,6 +258,17 @@ defmodule OpticRed.Room do
     current_game = current_game |> State.submit_clues(team_id, clues)
 
     broadcast(data.room_topic, {:clues_submitted, current_game})
+    {:reply, {:ok, current_game}, %{data | games: [current_game | previous_games]}}
+  end
+
+  @impl GenServer
+  def handle_call({:submit_attempt, team_id, attempt_numbers}, _from, data) do
+    %{games: games} = data
+
+    [current_game | previous_games] = games
+    current_game = current_game |> State.submit_attempt(team_id, attempt_numbers)
+
+    broadcast(data.room_topic, {:attempt_submitted, current_game})
     {:reply, {:ok, current_game}, %{data | games: [current_game | previous_games]}}
   end
 
