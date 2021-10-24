@@ -108,6 +108,10 @@ defmodule OpticRed do
     OpticRed.Room.submit_attempt(room_id, team_id, attempt_numbers)
   end
 
+  def new_round(room_id) do
+    OpticRed.Room.new_round(room_id)
+  end
+
   @doc """
   Get current game state
 

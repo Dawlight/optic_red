@@ -13,7 +13,8 @@ defmodule OpticRedWeb.Live.RoomLive do
     player_team_map: %{},
     current_player_id: nil,
     room_id: nil,
-    game_state: nil
+    game_state: nil,
+    loading: true
   }
 
   ###
@@ -59,7 +60,7 @@ defmodule OpticRedWeb.Live.RoomLive do
 
   @impl true
   def handle_info({:game_created, game_state}, socket) do
-    {:noreply, socket |> assign(game_state: game_state)}
+    {:noreply, socket |> assign(game_state: game_state, loading: false)}
   end
 
   @impl true
@@ -108,6 +109,14 @@ defmodule OpticRedWeb.Live.RoomLive do
      )}
   end
 
+  @impl true
+  def handle_info({:new_round, game_state}, socket) do
+    {:noreply,
+     assign(socket,
+       game_state: game_state |> IO.inspect(label: "N E W   R O U N D")
+     )}
+  end
+
   ###
   ### DOM Events
   ###
@@ -127,7 +136,7 @@ defmodule OpticRedWeb.Live.RoomLive do
   @impl true
   def handle_event("start_game", _value, %{assigns: assigns} = socket) do
     {:ok, _game_state} = OpticRed.create_new_game(assigns.room_id, 2)
-    {:noreply, socket}
+    {:noreply, socket |> assign(loading: true)}
   end
 
   @impl true
@@ -176,6 +185,12 @@ defmodule OpticRedWeb.Live.RoomLive do
     current_team_id = player_team_map[current_player_id]
 
     {:ok, _} = OpticRed.submit_attempt(assigns.room_id, current_team_id, attempt_numbers)
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("next_round", _values, %{assigns: assigns} = socket) do
+    {:ok, _} = OpticRed.new_round(assigns.room_id)
     {:noreply, socket}
   end
 
@@ -245,6 +260,9 @@ defmodule OpticRedWeb.Live.RoomLive do
                     {:decipher, :active}
                 end
 
+              :round_end ->
+                :round_end
+
               _ ->
                 nil
             end
@@ -253,9 +271,18 @@ defmodule OpticRedWeb.Live.RoomLive do
   end
 
   def page_loader_classes(assigns) do
-    case get_player_view(assigns) do
-      nil -> "pageloader is-active"
-      _ -> "pageloader"
+    case assigns[:loading] do
+      false ->
+        case get_player_view(assigns) do
+          nil -> "pageloader is-active"
+          _ -> "pageloader"
+        end
+
+      true ->
+        "pageloader is-active"
+
+      _ ->
+        "pageloader"
     end
   end
 
@@ -278,16 +305,16 @@ defmodule OpticRedWeb.Live.RoomLive do
         {:error, _} -> nil
       end
 
-    {:ok, view} =
-      {:ok,
-       assign(socket,
-         test: "Hello!",
-         players: players,
-         teams: teams,
-         player_team_map: player_team_map,
-         current_player_id: current_player_id,
-         game_state: game_state
-       )}
+    {:ok,
+     assign(socket,
+       test: "Hello!",
+       players: players,
+       teams: teams,
+       player_team_map: player_team_map,
+       current_player_id: current_player_id,
+       game_state: game_state,
+       loading: false
+     )}
   end
 
   defp subscribe_to_room(room_id) do

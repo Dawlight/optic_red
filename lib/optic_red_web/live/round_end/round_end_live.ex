@@ -1,4 +1,4 @@
-defmodule OpticRedWeb.Live.DecipherLive do
+defmodule OpticRedWeb.Live.RoundEndLive do
   use OpticRedWeb, :live_component
 
   alias OpticRed.Game.State
@@ -29,6 +29,20 @@ defmodule OpticRedWeb.Live.DecipherLive do
     clues
   end
 
+  def get_attempts(assigns, team_id) do
+    %State{data: %Data{rounds: rounds}} = assigns[:game_state]
+    [current_round | _] = rounds
+
+    current_round[team_id].attempts
+  end
+
+  def get_code(assigns, team_id) do
+    %State{data: %Data{rounds: rounds}} = assigns[:game_state]
+    [current_round | _] = rounds
+
+    current_round[team_id].code
+  end
+
   def lead_team_id(assigns) do
     %State{data: %Data{lead_team_id: lead_team_id}} = assigns[:game_state]
     lead_team_id
@@ -38,26 +52,5 @@ defmodule OpticRedWeb.Live.DecipherLive do
     current_player_id = assigns[:current_player_id]
     player_team_map = assigns[:player_team_map]
     player_team_map[current_player_id]
-  end
-
-  def lead_team_name(assigns) do
-    teams = assigns[:teams]
-    %State{data: %Data{lead_team_id: lead_team_id}} = assigns[:game_state]
-
-    teams
-    |> Enum.find_value("N/A", fn %Team{id: id, name: name} ->
-      if id == lead_team_id, do: name, else: nil
-    end)
-  end
-
-  def has_team_submitted?(assigns) do
-    current_player_id = assigns[:current_player_id]
-    player_team_map = assigns[:player_team_map]
-    %State{data: %Data{lead_team_id: lead_team_id, rounds: rounds}} = assigns[:game_state]
-    current_team_id = player_team_map[current_player_id]
-
-    [current_round | _] = rounds
-
-    current_round[current_team_id].attempts[lead_team_id] != nil
   end
 end

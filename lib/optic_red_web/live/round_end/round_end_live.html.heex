@@ -1,0 +1,6 @@
+<div class="p-2 has-text-centered" style="height: 100%">
+  <%= for team <- @teams do %>
+    <p><%= team.name %>: Code -> (<%= Jason.encode!(get_code(assigns, team.id)) %>) <%= Jason.encode!(get_attempts(assigns, team.id)) %></p>
+  <% end %>
+  <button phx-click="next_round" type="button" class="button is-fullwidth is-medium is-rounded is-success">NEXT ROUND!</button>
+</div>
