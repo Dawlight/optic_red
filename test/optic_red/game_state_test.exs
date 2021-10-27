@@ -1,213 +1,201 @@
 defmodule OpticRed.GameSateTest do
+  @moduledoc false
+
   use ExUnit.Case, async: false
 
   alias OpticRed.Game.State
 
-  test "creates new state" do
-    teams = [%State.Team{id: :red}, %State.Team{id: :blue}]
-    state = State.create_new(teams)
+  alias OpticRed.Game.State.{
+    Data,
+    Team,
+    Player
+  }
 
-    %{
-      current: :setup,
-      data: %State.Data{
-        rounds: [],
-        teams: ^teams,
-        lead_team_id: :red,
-        player_map: %{},
-        team_score_map: %{red: 0, blue: 0}
-      }
-    } = state
+  alias OpticRed.Game.State.{
+    Setup,
+    Preparation,
+    Encipher
+  }
 
-    for {_, team_words} <- state.data.team_words_map do
-      assert length(team_words) == 4
-    end
+  alias OpticRed.Game.Event.{
+    TeamAdded,
+    PlayerAdded,
+    TeamRemoved,
+    PlayerRemoved,
+    PlayerAssignedTeam,
+    TargetScoreSet,
+    GameStarted,
+    WordsGenerated,
+    PlayerReadied,
+    NewRoundStarted
+  }
+
+  test "Setup -> TeamAdded" do
+    state =
+      [
+        TeamAdded.with(id: "red", name: "Team Red"),
+        TeamAdded.with(id: "blue", name: "Team Blue")
+      ]
+      |> State.build_state(Setup.empty())
+
+    %Setup{data: %Data{teams: teams}} = state
+
+    [
+      %Team{id: "blue"},
+      %Team{id: "red"}
+    ] = teams
   end
 
-  test "assigns player" do
-    teams = [%State.Team{id: :red}, %State.Team{id: :blue}]
-    state = State.create_new(teams)
+  test "Setup -> TeamRemoved" do
+    state =
+      [
+        TeamAdded.with(id: "red", name: "Team Red"),
+        TeamAdded.with(id: "blue", name: "Team Blue"),
+        TeamRemoved.with(id: "red")
+      ]
+      |> State.build_state(Setup.empty())
 
-    player_id = "player1"
+    %Setup{data: data} = state
 
-    state = State.add_player(state, player_id, :red)
-    assert Map.get(state.data.player_team_map, player_id) == :red
-
-    state = State.add_player(state, player_id, :blue)
-    assert Map.get(state.data.player_team_map, player_id) == :blue
+    nil = data |> Data.get_team_by_id("red")
+    %Team{id: "blue"} = data |> Data.get_team_by_id("blue")
   end
 
-  test "creates new round" do
-    teams = [%State.Team{id: :red}, %State.Team{id: :blue}]
-    state = State.create_new(teams)
+  test "Setup -> PlayerAdded" do
+    state =
+      [
+        PlayerAdded.with(id: "bob", name: "Bob"),
+        PlayerAdded.with(id: "sal", name: "Sal")
+      ]
+      |> State.build_state(Setup.empty())
 
-    player_1_id = "player1"
-    player_2_id = "player2"
-    player_3_id = "player3"
-    player_4_id = "player4"
+    %Setup{data: %Data{players: players}} = state
 
-    state = State.add_player(state, player_1_id, :red)
-    state = State.add_player(state, player_2_id, :red)
-    state = State.add_player(state, player_3_id, :blue)
-    state = State.add_player(state, player_4_id, :blue)
-
-    %{current: :encipher} = State.new_round(state)
+    [
+      %Player{id: "sal", name: "Sal"},
+      %Player{id: "bob", name: "Bob"}
+    ] = players
   end
 
-  test "can't create new round unless there are enough players" do
-    teams = [%State.Team{id: :red}, %State.Team{id: :blue}]
-    state = State.create_new(teams)
+  test "Setup -> PlayerRemoved" do
+    state =
+      [
+        PlayerAdded.with(id: "bob", name: "Bob"),
+        PlayerAdded.with(id: "sal", name: "Sal"),
+        PlayerRemoved.with(id: "sal")
+      ]
+      |> State.build_state(Setup.empty())
 
-    player_1_id = "player1"
-    player_2_id = "player2"
-    player_4_id = "player4"
+    %Setup{data: data} = state
 
-    state = State.add_player(state, player_1_id, :red)
-    state = State.add_player(state, player_2_id, :red)
-    state = State.add_player(state, player_4_id, :blue)
-
-    {:error, _} = State.new_round(state)
+    nil = data |> Data.get_player_by_id("sal")
+    %Player{id: bob} = data |> Data.get_player_by_id("bob")
   end
 
-  test "submits clues" do
-    teams = [%State.Team{id: :red}, %State.Team{id: :blue}]
-    state = State.create_new(teams)
+  test "Setup -> PlayerAssignedTeam" do
+    # Normal assign
+    state1 =
+      [
+        TeamAdded.with(id: "blue", name: "Team Blue"),
+        PlayerAdded.with(id: "bob", name: "Bob"),
+        PlayerAssignedTeam.with(player_id: "bob", team_id: "blue")
+      ]
+      |> State.build_state(Setup.empty())
 
-    player_1_id = "player1"
-    player_2_id = "player2"
-    player_3_id = "player3"
-    player_4_id = "player4"
+    # Assign to non-existent team
+    state2 =
+      [
+        TeamAdded.with(id: "blue", name: "Team Blue"),
+        PlayerAdded.with(id: "bob", name: "Bob"),
+        PlayerAssignedTeam.with(player_id: "bob", team_id: "red")
+      ]
+      |> State.build_state(Setup.empty())
+
+    # Assign and unassign to team
+    state3 =
+      [
+        TeamAdded.with(id: "blue", name: "Team Blue"),
+        PlayerAdded.with(id: "bob", name: "Bob"),
+        PlayerAssignedTeam.with(player_id: "bob", team_id: "blue"),
+        PlayerAssignedTeam.with(player_id: "bob", team_id: nil)
+      ]
+      |> State.build_state(Setup.empty())
+
+    %Setup{data: data} = state1
+    [%Player{id: "bob"}] = data |> Data.get_players_by_team_id("blue")
+
+    %Setup{data: data} = state2
+    [] = data |> Data.get_players_by_team_id("red")
+
+    %Setup{data: data} = state3
+    [] = data |> Data.get_players_by_team_id("blue")
+  end
+
+  test "Setup -> TargetScoreSet" do
+    state =
+      [
+        TargetScoreSet.with(score: 1337)
+      ]
+      |> State.build_state(Setup.empty())
+
+    %Setup{data: %Data{target_score: 1337}} = state
+  end
+
+  test "Setup -> GameStarted -> Preparation" do
+    state =
+      [
+        GameStarted.empty()
+      ]
+      |> State.build_state(Setup.empty())
+
+    %Preparation{} = state
+  end
+
+  test "Preparation -> WordsGenerated" do
+    red_words = ["rudolph", "red", "nose", "reindeer"]
 
     state =
-      state
-      |> State.add_player(player_1_id, :red)
-      |> State.add_player(player_2_id, :red)
-      |> State.add_player(player_3_id, :blue)
-      |> State.add_player(player_4_id, :blue)
+      [
+        TeamAdded.with(id: "red"),
+        PlayerAdded.with(id: "bob"),
+        PlayerAssignedTeam.with(player_id: "bob", team_id: "red"),
+        GameStarted.empty(),
+        WordsGenerated.with(team_id: "red", words: ["rudolph", "red", "nose", "reindeer"])
+      ]
+      |> State.build_state(Setup.empty())
 
-    state = State.new_round(state)
-
-    %{current: :encipher} = state
-
-    state = State.submit_clues(state, :red, ["Thick", "Big", "Gone"])
-
-    assert List.first(state.data.rounds)[:red].clues == ["Thick", "Big", "Gone"]
+    %Preparation{data: %Data{words_by_team_id: words_by_team_id}} = state
+    %{"red" => ^red_words} = words_by_team_id
   end
 
-  test "starts decipher phase when all clues have been submitted" do
-    teams = [%State.Team{id: :red}, %State.Team{id: :blue}]
-    state = State.create_new(teams)
-
-    player_1_id = "player1"
-    player_2_id = "player2"
-    player_3_id = "player3"
-    player_4_id = "player4"
-
+  test "Preparation -> PlayerReadied (adds readied player)" do
     state =
-      state
-      |> State.add_player(player_1_id, :red)
-      |> State.add_player(player_2_id, :red)
-      |> State.add_player(player_3_id, :blue)
-      |> State.add_player(player_4_id, :blue)
+      [
+        TeamAdded.with(id: "red"),
+        PlayerAdded.with(id: "bob"),
+        PlayerAdded.with(id: "sal"),
+        PlayerAssignedTeam.with(player_id: "bob", team_id: "red"),
+        PlayerAssignedTeam.with(player_id: "sal", team_id: "red"),
+        GameStarted.empty(),
+        PlayerReadied.with(player_id: "bob", ready?: true)
+      ]
+      |> State.build_state(Setup.empty())
 
-    state = State.new_round(state)
-
-    state = State.submit_clues(state, :red, ["Thick", "Big", "Gone"])
-    %{current: :encipher} = state
-
-    %{current: :decipher} = State.submit_clues(state, :blue, ["Thin", "Small", "Home"])
+    %Preparation{ready_players: [%Player{id: "bob"}]} = state
   end
 
-  test "switches lead team when all teams have submitted attempts" do
-    teams = [%State.Team{id: :red}, %State.Team{id: :blue}]
-    state = State.create_new(teams)
-
-    player_1_id = "player1"
-    player_2_id = "player2"
-    player_3_id = "player3"
-    player_4_id = "player4"
-
+  test "Preparation -> NewRoundStarted -> Encipher" do
     state =
-      state
-      |> State.add_player(player_1_id, :red)
-      |> State.add_player(player_2_id, :red)
-      |> State.add_player(player_3_id, :blue)
-      |> State.add_player(player_4_id, :blue)
+      [
+        TeamAdded.with(id: "red"),
+        PlayerAdded.with(id: "bob"),
+        PlayerAssignedTeam.with(player_id: "bob", team_id: "red"),
+        GameStarted.empty(),
+        PlayerReadied.with(player_id: "bob", ready?: true),
+        NewRoundStarted.empty()
+      ]
+      |> State.build_state(Setup.empty())
 
-    state = State.new_round(state)
-
-    state = State.submit_clues(state, :red, ["Thick", "Big", "Gone"])
-    %{current: :encipher} = state
-    state = State.submit_clues(state, :blue, ["Thin", "Small", "Home"])
-    %{current: :decipher} = state
-
-    state = State.submit_attempt(state, :red, [1, 2, 3])
-
-    %State.State{current: :decipher, data: %State.Data{lead_team_id: :blue}} =
-      State.submit_attempt(state, :blue, [3, 2, 1])
-  end
-
-  test "starts new round when all attempts have been submitted" do
-    teams = [%State.Team{id: :red}, %State.Team{id: :blue}]
-    state = State.create_new(teams)
-
-    player_1_id = "player1"
-    player_2_id = "player2"
-    player_3_id = "player3"
-    player_4_id = "player4"
-
-    state =
-      state
-      |> State.add_player(player_1_id, :red)
-      |> State.add_player(player_2_id, :red)
-      |> State.add_player(player_3_id, :blue)
-      |> State.add_player(player_4_id, :blue)
-
-    state = State.new_round(state)
-
-    state = state |> State.submit_clues(:red, ["Thick", "Big", "Gone"])
-    %{current: :encipher} = state
-    state = state |> State.submit_clues(:blue, ["Thin", "Small", "Home"])
-    %{current: :decipher} = state
-
-    state = State.submit_attempt(state, :red, [1, 2, 3])
-    state = State.submit_attempt(state, :blue, [3, 2, 1])
-
-    state = State.submit_attempt(state, :red, [2, 2, 2])
-    state = State.submit_attempt(state, :blue, [3, 3, 3])
-
-    %{current: :encipher} = state
-  end
-
-  test "ends game when a team has reached the set amount of points" do
-    teams = [%State.Team{id: :red}, %State.Team{id: :blue}]
-    state = State.create_new(teams, 1)
-
-    player_1_id = "player1"
-    player_2_id = "player2"
-    player_3_id = "player3"
-    player_4_id = "player4"
-
-    state =
-      state
-      |> State.add_player(player_1_id, :red)
-      |> State.add_player(player_2_id, :red)
-      |> State.add_player(player_3_id, :blue)
-      |> State.add_player(player_4_id, :blue)
-
-    state = State.new_round(state)
-
-    state = State.submit_clues(state, :red, ["Thick", "Big", "Gone"])
-    %{current: :encipher} = state
-
-    state = %{current: :decipher} = State.submit_clues(state, :blue, ["Thin", "Small", "Home"])
-
-    %{data: %{rounds: [current_round | _]}} = state
-
-    state = State.submit_attempt(state, :red, [1, 2, 3])
-    state = State.submit_attempt(state, :blue, current_round[:red].code)
-    state = State.submit_attempt(state, :red, [2, 2, 2])
-    state = State.submit_attempt(state, :blue, current_round[:blue].code)
-
-    %{current: :game_end} = state
+    %Encipher{} = state
   end
 end

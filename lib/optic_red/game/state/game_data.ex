@@ -1,14 +1,164 @@
 defmodule OpticRed.Game.State.Data do
   defstruct [
-    :lead_team_id,
     :target_score,
-    rounds: [],
     teams: [],
-    team_map: %{},
-    player_map: %{},
-    player_team_map: %{},
-    team_words_map: %{},
-    team_score_map: %{},
-    ready_players: []
+    players: [],
+    rounds: [],
+    words_by_team_id: %{},
+    score_by_team_id: %{},
+    encipherer_pool_by_team_id: %{}
   ]
+
+  use OpticRed.Game.State.With
+
+  alias OpticRed.Game.State.{
+    Team,
+    Player,
+    Round
+  }
+
+  ##
+  ## Transform
+  ##
+
+  def add_team(%__MODULE__{teams: teams} = data, %Team{} = new_team) do
+    teams = [new_team | teams] |> Enum.uniq_by(fn %Team{id: id} -> id end)
+    data |> __MODULE__.with(teams: teams)
+  end
+
+  def remove_team(%__MODULE__{} = data, %Team{id: team_id}) do
+    data |> remove_team_by_id(team_id)
+  end
+
+  def remove_team_by_id(%__MODULE__{teams: teams} = data, team_id) do
+    teams = teams |> Enum.filter(fn team -> team.id != team_id end)
+    data |> __MODULE__.with(teams: teams)
+  end
+
+  def add_player(%__MODULE__{players: players} = data, %Player{} = new_player) do
+    players = [new_player | players] |> Enum.uniq_by(fn %Player{id: id} -> id end)
+    data |> __MODULE__.with(players: players)
+  end
+
+  def remove_player(%__MODULE__{} = data, %Player{id: player_id}) do
+    data |> remove_player_by_id(player_id)
+  end
+
+  def remove_player_by_id(%__MODULE__{players: players} = data, player_id) do
+    players = players |> Enum.filter(fn player -> player.id != player_id end)
+    data |> __MODULE__.with(players: players)
+  end
+
+  def set_player_team(%__MODULE__{} = data, %Player{} = player, nil) do
+    set_player_team(data, player, %Team{id: nil})
+  end
+
+  def set_player_team(%__MODULE__{players: players} = data, %Player{id: player_id}, %Team{
+        id: team_id
+      }) do
+    players =
+      players
+      |> Enum.map(fn player ->
+        case player.id do
+          ^player_id -> player |> Player.with(team_id: team_id)
+          _ -> player
+        end
+      end)
+
+    data |> __MODULE__.with(players: players)
+  end
+
+  def add_round(%__MODULE__{rounds: rounds} = data, %Round{} = round) do
+    data |> __MODULE__.with(rounds: [round | rounds])
+  end
+
+  def update_round(%__MODULE__{rounds: rounds} = data, index, update_function) do
+    rounds = rounds |> List.update_at(index, update_function)
+    data |> __MODULE__.with(rounds: rounds)
+  end
+
+  def set_target_score(%__MODULE__{} = data, target_score) do
+    data |> __MODULE__.with(target_score: target_score)
+  end
+
+  def set_team_words(%__MODULE__{words_by_team_id: words_by_team_id} = data, team, words) do
+    words_by_team_id = words_by_team_id |> Map.put(team.id, words)
+    data |> __MODULE__.with(words_by_team_id: words_by_team_id)
+  end
+
+  def set_team_score(%__MODULE__{score_by_team_id: score_by_team_id} = data, team, score) do
+    score_by_team_id = score_by_team_id |> Map.put(team.id, score)
+    data |> __MODULE__.with(score_by_team_id: score_by_team_id)
+  end
+
+  def pop_random_encipherer(%__MODULE__{} = data, %Team{} = team) do
+    %__MODULE__{encipherer_pool_by_team_id: encipherer_pools} = data
+
+    case encipherer_pools[team.id] do
+      pool when is_list(pool) and pool != [] ->
+        encipherer = pool |> Enum.random()
+        pool = pool |> List.delete(encipherer)
+        encipherer_pools = encipherer_pools |> Map.put(team.id, pool)
+        {encipherer, data |> __MODULE__.with(encipherer_pool_by_team_id: encipherer_pools)}
+
+      _ ->
+        data
+        |> refill_encipherer_pool(team)
+        |> pop_random_encipherer(team)
+    end
+  end
+
+  def refill_encipherer_pool(%__MODULE__{} = data, team) do
+    %__MODULE__{encipherer_pool_by_team_id: encipherer_pools} = data
+
+    players = data |> Data.get_players_by_team(team)
+    encipherer_pools = encipherer_pools |> Map.put(team.id, players)
+
+    data |> __MODULE__.with(encipherer_pool_by_team_id: encipherer_pools)
+  end
+
+  ##
+  ## Access
+  ##
+
+  def get_team_by_id(%__MODULE__{teams: teams}, team_id) do
+    teams |> Enum.find(fn team -> team.id == team_id end)
+  end
+
+  def get_player_by_id(%__MODULE__{players: players}, player_id) do
+    players |> Enum.find(fn player -> player.id == player_id end)
+  end
+
+  def get_players_by_team_id(%__MODULE__{players: players}, team_id) do
+    players |> Enum.filter(fn player -> player.team_id == team_id end)
+  end
+
+  def get_players_by_team(%__MODULE__{} = data, %Team{id: team_id}) do
+    data |> get_players_by_team_id(team_id)
+  end
+
+  def get_team_by_player_id(%__MODULE__{teams: teams} = data, player_id) do
+    player = data |> get_player_by_id(player_id)
+    teams |> Enum.find(fn team -> team.id == player.team_id end)
+  end
+
+  def get_team_by_player(%__MODULE__{} = data, %Player{id: player_id}) do
+    data |> get_team_by_player_id(player_id)
+  end
+
+  def get_round(%__MODULE__{rounds: rounds}, index) do
+    rounds |> Enum.at(index, nil)
+  end
+
+  def get_words(%__MODULE__{words_by_team_id: words_by_team_id}, %Team{id: team_id}) do
+    words_by_team_id[team_id]
+  end
+
+  def get_score(%__MODULE__{score_by_team_id: score_by_team_id}, %Team{id: team_id}) do
+    score_by_team_id[team_id]
+  end
+
+  #
+  # Private
+  #
 end
