@@ -1,125 +1,112 @@
-# defmodule OpticRed.Game.State.Decipher do
-#   alias OpticRed.Game.State.Data
+defmodule OpticRed.Game.State.Decipher do
+  alias OpticRed.Game.State.Data
 
-#   defstruct data: %Data{},
-#             codes: %{},
-#             clues: %{},
-#             attempts: %{},
-#             lead_team: nil,
-#             previous_lead_teams: []
+  defstruct data: %Data{},
+            lead_team: nil,
+            remaining_lead_teams: []
 
-#   alias OpticRed.Game.State.RoundEnd
-#   alias OpticRed.Game.State.GameEnd
+  use OpticRed.Game.State
 
-#   alias OpticRed.Game.Event.AttemptSubmitted
+  alias OpticRed.Game.State.Round
+  alias OpticRed.Game.State.RoundEnd
+  alias OpticRed.Game.State.GameEnd
 
-#   def new(%Data{team_map: team_map} = data, codes, clues) do
-#     [first_team | _] = team_map |> Enum.map(fn {_, team} -> team end)
+  alias OpticRed.Game.Event.AttemptSubmitted
 
-#     attempt_map = for {_, team} <- team_map, into: %{}, do: {team.id, nil}
-#     attempts = for {_, team} <- team_map, into: %{}, do: {team.id, attempt_map}
+  def new(%Data{teams: teams} = data) do
+    [lead_team | remaining_lead_teams] = teams
 
-#     %__MODULE__{
-#       data: data,
-#       codes: codes,
-#       clues: clues,
-#       attempts: attempts,
-#       lead_team: first_team
-#     }
-#   end
+    where(
+      data: data,
+      lead_team: lead_team,
+      remaining_lead_teams: remaining_lead_teams
+    )
+  end
 
-#   def with_next_lead_team(%__MODULE__{} = state) do
-#     %__MODULE__{data: %Data{team_map: team_map}, previous_lead_teams: previous_lead_teams} = state
-#     [first_team | _] = (team_map |> Enum.map(fn {_, team} -> team end)) -- previous_lead_teams
+  def apply_event(%__MODULE__{} = state, %AttemptSubmitted{} = event) do
+    %__MODULE__{
+      data: data,
+      lead_team: lead_team
+    } = state
 
-#     %__MODULE__{state | lead_team: first_team}
-#   end
+    %AttemptSubmitted{team_id: team_id, attempt: attempt} = event
 
-#   def apply_event(%__MODULE__{} = state, %AttemptSubmitted{} = event) do
-#     %__MODULE__{
-#       data: data,
-#       attempts: attempts,
-#       lead_team: lead_team
-#     } = state
+    data = data |> Data.update_round(0, &Round.set_attempt(&1, team_id, lead_team.id, attempt))
+    state = state |> where(data: data)
 
-#     %AttemptSubmitted{team_id: team_id, attempt: attempt} = event
+    with {:continue, state} <- check_submissions(state),
+         {:continue, state} <- check_turns(state),
+         {:continue, state} <- update_score(state),
+         {:next, state} <- check_win(state) do
+      state
+    else
+      {:next, state} -> state
+    end
+  end
 
-#     attempts = put_in(attempts[team_id][lead_team.id], attempt)
+  defp check_submissions(%__MODULE__{} = state) do
+    if all_teams_submitted?(state) do
+      {:continue, state}
+    else
+      {:next, state}
+    end
+  end
 
-#     case have_all_teams_submitted?(state) do
-#       false ->
-#         %__MODULE__{state | attempts: attempts}
+  defp all_teams_submitted?(%__MODULE__{data: data, lead_team: lead_team} = state) do
+    %Data{teams: teams} = data
 
-#       true ->
-#         case have_all_teams_been_lead?(state) |> IO.inspect(label: "All teams have been lead?") do
-#           true ->
-#             # data = update_score(data)
+    teams
+    |> Enum.all?(fn team ->
+      data
+      |> Data.get_round(0)
+      |> Round.get_attempt(team.id, lead_team.id) != nil
+    end)
+  end
 
-#             case has_any_team_won?(data) do
-#               true ->
-#                 GameEnd.new(data)
+  def update_score(%__MODULE__{data: data} = state) do
+    %Data{score_by_team_id: score_by_team_id, teams: teams} = data
 
-#               false ->
-#                 RoundEnd.new(data)
-#             end
+    round_score_by_team_id = data |> Data.get_round(0) |> Round.get_score(teams)
 
-#           false ->
-#             __MODULE__.with_next_lead_team(state)
-#         end
-#     end
-#   end
+    score_by_team_id =
+      Map.merge(score_by_team_id, round_score_by_team_id, fn _, score, round_score ->
+        score + round_score
+      end)
 
-#   defp has_any_team_won?(%Data{target_score: target_score} = data) do
-#     Enum.any?(Map.values(data.team_score_map), fn score -> score >= target_score end)
-#   end
+    data = data |> Data.where(score_by_team_id: score_by_team_id)
+    {:continue, state |> where(data: data)}
+  end
 
-#   defp have_all_teams_submitted?(%__MODULE__{attempts: attempts, lead_team: lead_team}) do
-#     Enum.all?(attempts, fn {_, attempt_map} -> attempt_map[lead_team.id] != nil end)
-#   end
+  def check_turns(%__MODULE__{remaining_lead_teams: remaining_lead_teams} = state) do
+    case remaining_lead_teams do
+      [] ->
+        {:continue, state}
 
-#   defp have_all_teams_been_lead?(%__MODULE__{} = state) do
-#     %__MODULE__{
-#       data: %Data{team_map: team_map},
-#       lead_team: lead_team,
-#       previous_lead_teams: previous_lead_teams
-#     } = state
+      [next_lead_team | remaining_lead_teams] ->
+        state =
+          state
+          |> where(
+            lead_team: next_lead_team,
+            remaining_lead_teams: remaining_lead_teams
+          )
 
-#     teams = team_map |> Enum.map(fn {_, team} -> team end)
+        {:next, state}
+    end
+  end
 
-#     teams == [lead_team | previous_lead_teams]
-#   end
+  def check_win(%__MODULE__{data: data} = state) do
+    case any_team_won?(data) do
+      true ->
+        {:next, GameEnd.new(data)}
 
-#   # defp update_score(data) do
-#   #   %Data{team_map: team_map, team_score_map: team_score_map} = data
-#   #   [current_round | _] = rounds
-#   #   round_score = get_round_score(team_map, current_round)
-#   #   total_score = Map.merge(team_score_map, round_score, fn _, x, y -> x + y end)
-#   #   put_in(data.team_score_map, total_score)
-#   # end
+      false ->
+        {:next, RoundEnd.new(data)}
+    end
+  end
 
-#   # defp get_round_score(team_map, round) do
-#   #   matchups =
-#   #     for {deciphering_team_id, _} <- team_map,
-#   #         {enciphering_team_id, _} <- team_map,
-#   #         do: {deciphering_team_id, enciphering_team_id}
+  defp any_team_won?(%Data{} = data) do
+    %Data{teams: teams, target_score: target_score} = data
 
-#   #   Enum.reduce(matchups, %{}, fn {dec_team_id, enc_team_id}, score_totals ->
-#   #     score = get_team_vs_team_round_score(dec_team_id, enc_team_id, round)
-#   #     Map.update(score_totals, dec_team_id, score, fn current_score -> current_score + score end)
-#   #   end)
-#   # end
-
-#   # defp get_team_vs_team_round_score(desciphering_team, enciperhing_team, round) do
-#   #   attempt = round[desciphering_team].attempts[enciperhing_team]
-#   #   code = round[enciperhing_team].code
-
-#   #   cond do
-#   #     # Bad attempt at own team's code
-#   #     attempt != code and enciperhing_team === desciphering_team -> -2
-#   #     # Good attempt at opposing team's code
-#   #     attempt === code and enciperhing_team !== desciphering_team -> 1
-#   #     # Otherwise no points
-#   #     true -> 0
-#   #   end
-#   # end
-# end
+    teams |> Enum.any?(fn team -> data |> Data.get_score(team) >= target_score end)
+  end
+end

@@ -4,7 +4,7 @@
     <h1 class="title">This is your team's secret words</h1>
     <h2 class="title is-subtitle">Look them up if you're not sure what they mean, and proceed by starting the game</h2>
     <h2 class="title is-subtitle">
-      <%= readied_players(assigns) |> Enum.count() %>/<%= @players |> IO.inspect(label: "PLAYER MAP") |> Enum.count()%>
+      <%= readied_players(assigns) |> Enum.count() %>/<%= @players |> Enum.count()%>
       players ready</h2>
     <%= if readied?(assigns) do %>
       <button phx-click="ready_toggle"

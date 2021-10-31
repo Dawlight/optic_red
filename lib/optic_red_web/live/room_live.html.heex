@@ -15,7 +15,7 @@
       loading: @loading
     ]
 
-    case get_player_view(assigns) |> IO.inspect(label: "For #{@current_player_id}") do
+    case get_player_view(assigns) do
       :pre_game -> live_component(PreGameLive, [{:id,:pre_game} | state])
       :setup -> live_component(SetupLive, [{:id,:setup} | state])
       {:encipher, role} -> live_component(EncipherLive, [{:id, :encipher} | [{:role, role} | state]])

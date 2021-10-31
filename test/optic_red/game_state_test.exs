@@ -8,13 +8,16 @@ defmodule OpticRed.GameSateTest do
   alias OpticRed.Game.State.{
     Data,
     Team,
-    Player
+    Player,
+    Round
   }
 
   alias OpticRed.Game.State.{
     Setup,
     Preparation,
-    Encipher
+    Encipher,
+    Decipher,
+    RoundEnd
   }
 
   alias OpticRed.Game.Event.{
@@ -27,7 +30,9 @@ defmodule OpticRed.GameSateTest do
     GameStarted,
     WordsGenerated,
     PlayerReadied,
-    NewRoundStarted
+    NewRoundStarted,
+    CluesSubmitted,
+    AttemptSubmitted
   }
 
   test "Setup -> TeamAdded" do
@@ -197,5 +202,86 @@ defmodule OpticRed.GameSateTest do
       |> State.build_state(Setup.empty())
 
     %Encipher{} = state
+  end
+
+  test "Encipher -> CluesSubmitted -> Decipher" do
+    initial_state =
+      Encipher.where(
+        data:
+          Data.where(
+            rounds: [Round.empty()],
+            teams: [
+              %Team{id: "red"},
+              %Team{id: "blue"}
+            ]
+          )
+      )
+
+    state =
+      [
+        CluesSubmitted.with(team_id: "red", clues: ["big", "bad", "bed"]),
+        CluesSubmitted.with(team_id: "blue", clues: ["big", "bad", "bed"])
+      ]
+      |> State.build_state(initial_state)
+
+    %Decipher{} = state
+  end
+
+  test "Decipher -> AttemptSubmitted -> RoundEnd" do
+    initial_state =
+      Decipher.new(
+        Data.where(
+          target_score: 2,
+          rounds: [Round.where(code_by_team_id: %{"red" => [1, 2, 3], "blue" => [5, 5, 5]})],
+          teams: ["red", "blue"] |> Enum.map(&%Team{id: &1})
+        )
+      )
+
+    state =
+      [
+        AttemptSubmitted.with(team_id: "red", attempt: [1, 2, 3]),
+        AttemptSubmitted.with(team_id: "blue", attempt: [1, 1, 1])
+      ]
+      |> State.build_state(initial_state)
+
+    %Decipher{} = state
+
+    state =
+      [
+        AttemptSubmitted.with(team_id: "red", attempt: [5, 5, 5]),
+        AttemptSubmitted.with(team_id: "blue", attempt: [3, 3, 3])
+      ]
+      |> State.build_state(state)
+
+    assert %RoundEnd{data: %Data{score_by_team_id: %{"blue" => -1, "red" => 1}}} = state
+  end
+
+  test "Decipher -> AttemptSubmitted -> GameEnd" do
+    initial_state =
+      Decipher.new(
+        Data.where(
+          target_score: 1,
+          rounds: [Round.where(code_by_team_id: %{"red" => [1, 2, 3], "blue" => [5, 5, 5]})],
+          teams: ["red", "blue"] |> Enum.map(&%Team{id: &1})
+        )
+      )
+
+    state =
+      [
+        AttemptSubmitted.with(team_id: "red", attempt: [1, 2, 3]),
+        AttemptSubmitted.with(team_id: "blue", attempt: [1, 1, 1])
+      ]
+      |> State.build_state(initial_state)
+
+    %Decipher{} = state
+
+    state =
+      [
+        AttemptSubmitted.with(team_id: "red", attempt: [5, 5, 5]),
+        AttemptSubmitted.with(team_id: "blue", attempt: [3, 3, 3])
+      ]
+      |> State.build_state(state)
+
+    assert %RoundEnd{data: %Data{score_by_team_id: %{"blue" => -1, "red" => 1}}} = state
   end
 end

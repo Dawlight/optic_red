@@ -132,8 +132,6 @@ defmodule OpticRed.Room do
 
   @impl GenServer
   def init(room_id) do
-    IO.inspect('Init run!')
-
     teams = [%Team{id: "red", name: "Team Red"}, %Team{id: "blue", name: "Team Blue"}]
 
     initial_state = %{
@@ -154,9 +152,9 @@ defmodule OpticRed.Room do
 
   @impl GenServer
   def handle_call({:add_player, player_id, name}, _from, %{players: players} = data) do
-    player = %Player{id: player_id, name: name} |> IO.inspect(label: "Player trying to join")
+    player = %Player{id: player_id, name: name}
 
-    case Enum.member?(players, player) |> IO.inspect(label: "Player already joined?") do
+    case Enum.member?(players, player) do
       true ->
         {:reply, {:error, :player_already_joined}, data}
 
@@ -182,9 +180,9 @@ defmodule OpticRed.Room do
 
   @impl GenServer
   def handle_call({:add_team, team_id, name}, _from, %{teams: teams} = data) do
-    team = %Team{id: team_id, name: name} |> IO.inspect(label: "Trying to add team")
+    team = %Team{id: team_id, name: name}
 
-    case Enum.member?(teams, team) |> IO.inspect(label: "Team already added?") do
+    case Enum.member?(teams, team) do
       true ->
         {:reply, {:error, :team_already_exists}, data}
 
@@ -232,8 +230,7 @@ defmodule OpticRed.Room do
 
   @impl GenServer
   def handle_call({:create_new_game, target_score}, _from, data) do
-    %{games: games, players: players, teams: teams, player_team_map: player_team_map} =
-      data |> IO.inspect(label: "CREATE NEW GAME")
+    %{games: games, players: players, teams: teams, player_team_map: player_team_map} = data
 
     game_state = State.create_new(teams, players, player_team_map, target_score)
     games = [game_state | games]

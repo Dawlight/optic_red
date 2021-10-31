@@ -17,20 +17,24 @@ defmodule OpticRed.Game.State.Setup do
   alias OpticRed.Game.Event.TargetScoreSet
   alias OpticRed.Game.Event.GameStarted
 
+  def new(%__MODULE__{} = state, data) do
+    state |> where(data: data)
+  end
+
   def apply_event(%__MODULE__{data: data} = state, %TeamAdded{id: id, name: name}) do
-    state |> __MODULE__.with(data: data |> Data.add_team(%Team{id: id, name: name}))
+    state |> where(data: data |> Data.add_team(%Team{id: id, name: name}))
   end
 
   def apply_event(%__MODULE__{data: data} = state, %TeamRemoved{id: id}) do
-    state |> __MODULE__.with(data: data |> Data.remove_team_by_id(id))
+    state |> where(data: data |> Data.remove_team_by_id(id))
   end
 
   def apply_event(%__MODULE__{data: data} = state, %PlayerAdded{id: id, name: name}) do
-    state |> __MODULE__.with(data: data |> Data.add_player(%Player{id: id, name: name}))
+    state |> where(data: data |> Data.add_player(%Player{id: id, name: name}))
   end
 
   def apply_event(%__MODULE__{data: data} = state, %PlayerRemoved{id: id}) do
-    state |> __MODULE__.with(data: data |> Data.remove_player_by_id(id))
+    state |> where(data: data |> Data.remove_player_by_id(id))
   end
 
   def apply_event(%__MODULE__{data: data} = state, %PlayerAssignedTeam{} = event) do
@@ -42,18 +46,18 @@ defmodule OpticRed.Game.State.Setup do
       player = data |> Data.get_player_by_id(player_id)
       team = data |> Data.get_team_by_id(team_id)
 
-      state |> __MODULE__.with(data: data |> Data.set_player_team(player, team))
+      state |> where(data: data |> Data.set_player_team(player, team))
     else
       state
     end
   end
 
   def apply_event(%__MODULE__{data: data} = state, %TargetScoreSet{score: score}) do
-    state |> __MODULE__.with(data: data |> Data.set_target_score(score))
+    state |> where(data: data |> Data.set_target_score(score))
   end
 
   def apply_event(%__MODULE__{data: data}, %GameStarted{}) do
-    Preparation.new(data)
+    Preparation.where(data: data)
   end
 
   def apply_event(%__MODULE__{} = state, _event) do

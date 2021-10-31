@@ -6,7 +6,7 @@ defmodule OpticRed.Game.State.Round do
 
   alias OpticRed.Game.State.Team
 
-  use OpticRed.Game.State.With
+  use OpticRed.Game.State.Where
 
   def from_teams(teams) do
     %__MODULE__{}
@@ -22,14 +22,14 @@ defmodule OpticRed.Game.State.Round do
   end
 
   def with_encipherers(%__MODULE__{} = round, encipherer_id_by_team_id) do
-    round |> __MODULE__.with(encipherer_id_by_team_id: encipherer_id_by_team_id)
+    round |> where(encipherer_id_by_team_id: encipherer_id_by_team_id)
   end
 
   def set_encipherer(%__MODULE__{} = round, team_id, encipherer) do
     %__MODULE__{encipherer_id_by_team_id: encipherer_id_by_team_id} = round
     encipherer_id_by_team_id = encipherer_id_by_team_id |> Map.put(team_id, encipherer)
 
-    round |> __MODULE__.with(encipherer_id_by_team_id: encipherer_id_by_team_id)
+    round |> where(encipherer_id_by_team_id: encipherer_id_by_team_id)
   end
 
   # Code
@@ -41,11 +41,11 @@ defmodule OpticRed.Game.State.Round do
   def set_code(%__MODULE__{code_by_team_id: code_by_team_id} = round, team_id, code) do
     code_by_team_id = code_by_team_id |> Map.put(team_id, code)
 
-    round |> __MODULE__.with(code_by_team_id: code_by_team_id)
+    round |> where(code_by_team_id: code_by_team_id)
   end
 
   def with_codes(%__MODULE__{} = round, code_by_team_id) do
-    round |> __MODULE__.with(code_by_team_id: code_by_team_id)
+    round |> where(code_by_team_id: code_by_team_id)
   end
 
   # Clues
@@ -57,13 +57,13 @@ defmodule OpticRed.Game.State.Round do
   def set_clues(%__MODULE__{clues_by_team_id: clues_by_team_id} = round, team_id, clues) do
     clues_by_team_id = clues_by_team_id |> Map.put(team_id, clues)
 
-    round |> __MODULE__.with(clues_by_team_id: clues_by_team_id)
+    round |> where(clues_by_team_id: clues_by_team_id)
   end
 
   def with_default_clues(%__MODULE__{} = round, teams) do
     clues_by_team_id = for %Team{id: id} <- teams, into: %{}, do: {id, nil}
 
-    round |> __MODULE__.with(clues_by_team_id: clues_by_team_id)
+    round |> where(clues_by_team_id: clues_by_team_id)
   end
 
   # Attempts
@@ -73,7 +73,7 @@ defmodule OpticRed.Game.State.Round do
 
     case attempts_by_team_id[decipherer_team_id] do
       %{^encipherer_team_id => attempt} -> attempt
-      nil -> nil
+      _ -> nil
     end
   end
 
@@ -90,7 +90,7 @@ defmodule OpticRed.Game.State.Round do
       end)
 
     round
-    |> __MODULE__.with(attempts_by_team_id: attempts_by_team_id)
+    |> where(attempts_by_team_id: attempts_by_team_id)
   end
 
   def with_default_attempts(%__MODULE__{} = round, teams) do
@@ -100,6 +100,35 @@ defmodule OpticRed.Game.State.Round do
         {current_team_id, attempt_map}
       end
 
-    round |> __MODULE__.with(attempts_by_team_id: attempts_by_team_id)
+    round |> where(attempts_by_team_id: attempts_by_team_id)
+  end
+
+  def get_score(%__MODULE__{} = round, teams) do
+    matchups =
+      for decipherer_team <- teams,
+          encipherer_team <- teams,
+          into: [],
+          do: {decipherer_team, encipherer_team}
+
+    score_by_team_id = for team <- teams, into: %{}, do: {team.id, 0}
+
+    matchups
+    |> List.foldl(score_by_team_id, fn matchup, score_by_team_id ->
+      {decipherer_team, _} = matchup
+
+      score_by_team_id
+      |> Map.update!(decipherer_team.id, fn score -> score + get_vs_score(round, matchup) end)
+    end)
+  end
+
+  defp get_vs_score(%__MODULE__{} = round, {decipherer_team, encipherer_team}) do
+    correct_code = round |> get_code(encipherer_team.id)
+    attempt = round |> get_attempt(decipherer_team.id, encipherer_team.id)
+
+    if attempt == correct_code do
+      if decipherer_team != encipherer_team, do: 1, else: 0
+    else
+      if decipherer_team == encipherer_team, do: -1, else: 0
+    end
   end
 end

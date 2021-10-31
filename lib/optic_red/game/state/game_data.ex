@@ -9,7 +9,7 @@ defmodule OpticRed.Game.State.Data do
     encipherer_pool_by_team_id: %{}
   ]
 
-  use OpticRed.Game.State.With
+  use OpticRed.Game.State.Where
 
   alias OpticRed.Game.State.{
     Team,
@@ -23,7 +23,7 @@ defmodule OpticRed.Game.State.Data do
 
   def add_team(%__MODULE__{teams: teams} = data, %Team{} = new_team) do
     teams = [new_team | teams] |> Enum.uniq_by(fn %Team{id: id} -> id end)
-    data |> __MODULE__.with(teams: teams)
+    data |> where(teams: teams)
   end
 
   def remove_team(%__MODULE__{} = data, %Team{id: team_id}) do
@@ -32,12 +32,12 @@ defmodule OpticRed.Game.State.Data do
 
   def remove_team_by_id(%__MODULE__{teams: teams} = data, team_id) do
     teams = teams |> Enum.filter(fn team -> team.id != team_id end)
-    data |> __MODULE__.with(teams: teams)
+    data |> where(teams: teams)
   end
 
   def add_player(%__MODULE__{players: players} = data, %Player{} = new_player) do
     players = [new_player | players] |> Enum.uniq_by(fn %Player{id: id} -> id end)
-    data |> __MODULE__.with(players: players)
+    data |> where(players: players)
   end
 
   def remove_player(%__MODULE__{} = data, %Player{id: player_id}) do
@@ -46,7 +46,7 @@ defmodule OpticRed.Game.State.Data do
 
   def remove_player_by_id(%__MODULE__{players: players} = data, player_id) do
     players = players |> Enum.filter(fn player -> player.id != player_id end)
-    data |> __MODULE__.with(players: players)
+    data |> where(players: players)
   end
 
   def set_player_team(%__MODULE__{} = data, %Player{} = player, nil) do
@@ -60,35 +60,35 @@ defmodule OpticRed.Game.State.Data do
       players
       |> Enum.map(fn player ->
         case player.id do
-          ^player_id -> player |> Player.with(team_id: team_id)
+          ^player_id -> player |> Player.where(team_id: team_id)
           _ -> player
         end
       end)
 
-    data |> __MODULE__.with(players: players)
+    data |> where(players: players)
   end
 
   def add_round(%__MODULE__{rounds: rounds} = data, %Round{} = round) do
-    data |> __MODULE__.with(rounds: [round | rounds])
+    data |> where(rounds: [round | rounds])
   end
 
   def update_round(%__MODULE__{rounds: rounds} = data, index, update_function) do
     rounds = rounds |> List.update_at(index, update_function)
-    data |> __MODULE__.with(rounds: rounds)
+    data |> where(rounds: rounds)
   end
 
   def set_target_score(%__MODULE__{} = data, target_score) do
-    data |> __MODULE__.with(target_score: target_score)
+    data |> where(target_score: target_score)
   end
 
   def set_team_words(%__MODULE__{words_by_team_id: words_by_team_id} = data, team, words) do
     words_by_team_id = words_by_team_id |> Map.put(team.id, words)
-    data |> __MODULE__.with(words_by_team_id: words_by_team_id)
+    data |> where(words_by_team_id: words_by_team_id)
   end
 
   def set_team_score(%__MODULE__{score_by_team_id: score_by_team_id} = data, team, score) do
     score_by_team_id = score_by_team_id |> Map.put(team.id, score)
-    data |> __MODULE__.with(score_by_team_id: score_by_team_id)
+    data |> where(score_by_team_id: score_by_team_id)
   end
 
   def pop_random_encipherer(%__MODULE__{} = data, %Team{} = team) do
@@ -99,7 +99,7 @@ defmodule OpticRed.Game.State.Data do
         encipherer = pool |> Enum.random()
         pool = pool |> List.delete(encipherer)
         encipherer_pools = encipherer_pools |> Map.put(team.id, pool)
-        {encipherer, data |> __MODULE__.with(encipherer_pool_by_team_id: encipherer_pools)}
+        {encipherer, data |> where(encipherer_pool_by_team_id: encipherer_pools)}
 
       _ ->
         data
@@ -114,7 +114,7 @@ defmodule OpticRed.Game.State.Data do
     players = data |> Data.get_players_by_team(team)
     encipherer_pools = encipherer_pools |> Map.put(team.id, players)
 
-    data |> __MODULE__.with(encipherer_pool_by_team_id: encipherer_pools)
+    data |> where(encipherer_pool_by_team_id: encipherer_pools)
   end
 
   ##
