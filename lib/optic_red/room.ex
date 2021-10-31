@@ -3,8 +3,8 @@ defmodule OpticRed.Room do
 
   alias Phoenix.PubSub
   alias OpticRed.Game.State
-  alias OpticRed.Game.State.Team
-  alias OpticRed.Game.State.Player
+  alias OpticRed.Game.Model.Team
+  alias OpticRed.Game.Model.Player
 
   ###
   ### API

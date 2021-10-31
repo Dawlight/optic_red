@@ -1,4 +1,4 @@
-defmodule OpticRed.Game.State.Data do
+defmodule OpticRed.Game.Model.Data do
   defstruct [
     :target_score,
     teams: [],
@@ -9,9 +9,9 @@ defmodule OpticRed.Game.State.Data do
     encipherer_pool_by_team_id: %{}
   ]
 
-  use OpticRed.Game.State.Where
+  use OpticRed.Game.Model
 
-  alias OpticRed.Game.State.{
+  alias OpticRed.Game.Model.{
     Team,
     Player,
     Round

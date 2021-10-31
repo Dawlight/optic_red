@@ -1,5 +1,5 @@
 defmodule OpticRed.Game.State.GameEnd do
-  alias OpticRed.Game.State.Data
+  alias OpticRed.Game.Model.Data
   defstruct data: %Data{}
 
   def new(%Data{} = data) do

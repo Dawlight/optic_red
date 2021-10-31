@@ -3,7 +3,7 @@ defmodule OpticRed.GameSateTest do
 
   use ExUnit.Case, async: false
 
-  alias OpticRed.Game.State.{
+  alias OpticRed.Game.Model.{
     Team,
     Round
   }

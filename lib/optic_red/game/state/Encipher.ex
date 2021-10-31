@@ -1,13 +1,12 @@
 defmodule OpticRed.Game.State.Encipher do
-  alias OpticRed.Game.State.Data
+  alias OpticRed.Game.Model.Data
   defstruct data: %Data{}
 
   use OpticRed.Game.State
 
-  alias OpticRed.Game.State.Round
-  alias OpticRed.Game.State.Decipher
-
+  alias OpticRed.Game.Model.Round
   alias OpticRed.Game.Event.CluesSubmitted
+  alias OpticRed.Game.State.Decipher
 
   def apply_event(%__MODULE__{data: data} = state, %CluesSubmitted{team_id: team_id, clues: clues}) do
     data = data |> Data.update_round(0, &Round.set_clues(&1, team_id, clues))

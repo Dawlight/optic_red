@@ -5,7 +5,7 @@ defmodule OpticRed.GameSateTest do
 
   alias OpticRed.Game.State
 
-  alias OpticRed.Game.State.{
+  alias OpticRed.Game.Model.{
     Data,
     Team,
     Player,
@@ -17,7 +17,8 @@ defmodule OpticRed.GameSateTest do
     Preparation,
     Encipher,
     Decipher,
-    RoundEnd
+    RoundEnd,
+    GameEnd
   }
 
   alias OpticRed.Game.Event.{
@@ -282,6 +283,6 @@ defmodule OpticRed.GameSateTest do
       ]
       |> State.build_state(state)
 
-    assert %RoundEnd{data: %Data{score_by_team_id: %{"blue" => -1, "red" => 1}}} = state
+    assert %GameEnd{data: %Data{score_by_team_id: %{"blue" => -1, "red" => 1}}} = state
   end
 end

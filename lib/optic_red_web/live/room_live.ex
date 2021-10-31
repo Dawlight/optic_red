@@ -3,8 +3,8 @@
 
 #   alias Phoenix.PubSub
 #   alias OpticRed.Game.State
-#   alias OpticRed.Game.State.Data
-#   alias OpticRed.Game.State.Team
+#   alias OpticRed.Game.Model.Data
+#   alias OpticRed.Game.Model.Team
 
 #   @default_assigns %{
 #     test: "Hello!",

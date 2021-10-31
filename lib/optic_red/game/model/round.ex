@@ -1,12 +1,12 @@
-defmodule OpticRed.Game.State.Round do
+defmodule OpticRed.Game.Model.Round do
   defstruct encipherer_id_by_team_id: %{},
             code_by_team_id: %{},
             clues_by_team_id: %{},
             attempts_by_team_id: %{}
 
-  alias OpticRed.Game.State.Team
+  alias OpticRed.Game.Model.Team
 
-  use OpticRed.Game.State.Where
+  use OpticRed.Game.Model
 
   def from_teams(teams) do
     %__MODULE__{}

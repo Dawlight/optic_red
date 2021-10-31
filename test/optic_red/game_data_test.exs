@@ -3,7 +3,7 @@ defmodule OpticRed.GameSateTest do
 
   use ExUnit.Case, async: false
 
-  alias OpticRed.Game.State.{
+  alias OpticRed.Game.Model.{
     Data,
     Team,
     Player,
@@ -127,12 +127,12 @@ defmodule OpticRed.GameSateTest do
         {encipherers |> Map.put(team.id, encipherer), data}
       end)
 
-    %Data{
-      encipherer_pool_by_team: %{
-        ^team_0_id => team_0_pool,
-        ^team_1_id => team_1_pool
-      }
-    } = data
+    assert %Data{
+             encipherer_pool_by_team_id: %{
+               ^team_0_id => team_0_pool,
+               ^team_1_id => team_1_pool
+             }
+           } = data
 
     %{
       ^team_0_id => team_0_encipherer,
@@ -151,7 +151,7 @@ defmodule OpticRed.GameSateTest do
         {encipherers |> Map.put(team.id, encipherer), data}
       end)
 
-    [] = data.encipherer_pool_by_team[team_0_id]
-    [] = data.encipherer_pool_by_team[team_0_id]
+    assert [] = data.encipherer_pool_by_team_id[team_0_id]
+    assert [] = data.encipherer_pool_by_team_id[team_0_id]
   end
 end

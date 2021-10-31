@@ -1,5 +1,5 @@
 defmodule OpticRed.Game.State.Decipher do
-  alias OpticRed.Game.State.Data
+  alias OpticRed.Game.Model.Data
 
   defstruct data: %Data{},
             lead_team: nil,
@@ -7,11 +7,9 @@ defmodule OpticRed.Game.State.Decipher do
 
   use OpticRed.Game.State
 
-  alias OpticRed.Game.State.Round
-  alias OpticRed.Game.State.RoundEnd
-  alias OpticRed.Game.State.GameEnd
-
+  alias OpticRed.Game.Model.Round
   alias OpticRed.Game.Event.AttemptSubmitted
+  alias OpticRed.Game.State.{RoundEnd, GameEnd}
 
   def new(%Data{teams: teams} = data) do
     [lead_team | remaining_lead_teams] = teams

@@ -1,5 +1,5 @@
 defmodule OpticRed.Game.State.RoundEnd do
-  alias OpticRed.Game.State.Data
+  alias OpticRed.Game.Model.Data
   defstruct data: %Data{}
 
   alias OpticRed.Game.Event.NewRoundStarted

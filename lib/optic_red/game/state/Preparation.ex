@@ -1,16 +1,16 @@
 defmodule OpticRed.Game.State.Preparation do
-  alias OpticRed.Game.State.Data
+  alias OpticRed.Game.Model.Data
   defstruct data: %Data{}, ready_players: []
 
   use OpticRed.Game.State
+
+  alias OpticRed.Game.Model.Round
 
   alias OpticRed.Game.Event.{
     PlayerReadied,
     WordsGenerated,
     NewRoundStarted
   }
-
-  alias OpticRed.Game.State.Round
 
   alias OpticRed.Game.State.Encipher
 

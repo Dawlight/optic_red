@@ -2,9 +2,9 @@
 #   use OpticRedWeb, :live_component
 
 #   alias OpticRed.Game.State
-#   alias OpticRed.Game.State.Data
-#   alias OpticRed.Game.State.Team
-#   alias OpticRed.Game.State.TeamRound
+#   alias OpticRed.Game.Model.Data
+#   alias OpticRed.Game.Model.Team
+#   alias OpticRed.Game.Model.TeamRound
 
 #   @default_assigns %{
 #     teams: [],

@@ -3,8 +3,8 @@ defmodule OpticRed do
   Interaction with room and games
   """
 
-  alias OpticRed.Game.State.Player
-  alias OpticRed.Game.State.Team
+  alias OpticRed.Game.Model.Player
+  alias OpticRed.Game.Model.Team
   alias OpticRed.Game.State.State
 
   @type player_team_map :: %{

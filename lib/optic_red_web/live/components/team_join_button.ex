@@ -3,7 +3,7 @@ defmodule OpticRedWeb.Live.Components.TeamJoinButton do
   use Phoenix.Template, root: "lib/optic_red_web/live/components"
 
   alias AftermathWeb.LiveHelpers
-  alias OpticRed.Game.State.Team
+  alias OpticRed.Game.Model.Team
 
   def render(assigns) do
     render_template("team_join_button.html", assigns)

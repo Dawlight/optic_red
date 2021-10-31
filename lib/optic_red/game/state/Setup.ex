@@ -1,21 +1,22 @@
 defmodule OpticRed.Game.State.Setup do
-  alias OpticRed.Game.State.Data
+  alias OpticRed.Game.Model.Data
   defstruct data: %Data{}
 
   use OpticRed.Game.State
 
-  alias OpticRed.Game.State.Team
-  alias OpticRed.Game.State.Player
+  alias OpticRed.Game.Model.{Team, Player}
 
   alias OpticRed.Game.State.Preparation
 
-  alias OpticRed.Game.Event.TeamAdded
-  alias OpticRed.Game.Event.TeamRemoved
-  alias OpticRed.Game.Event.PlayerAdded
-  alias OpticRed.Game.Event.PlayerRemoved
-  alias OpticRed.Game.Event.PlayerAssignedTeam
-  alias OpticRed.Game.Event.TargetScoreSet
-  alias OpticRed.Game.Event.GameStarted
+  alias OpticRed.Game.Event.{
+    TeamAdded,
+    TeamRemoved,
+    PlayerAdded,
+    PlayerRemoved,
+    PlayerAssignedTeam,
+    TargetScoreSet,
+    GameStarted
+  }
 
   def new(%__MODULE__{} = state, data) do
     state |> where(data: data)

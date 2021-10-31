@@ -1,4 +1,4 @@
-defmodule OpticRed.Game.State.Where do
+defmodule OpticRed.Game.Model do
   defmacro __using__(_opts) do
     quote do
       alias __MODULE__
