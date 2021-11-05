@@ -12,6 +12,12 @@ defmodule OpticRed.Game.State.Preparation do
     NewRoundStarted
   }
 
+  alias OpticRed.Game.Action.{
+    GenerateWords,
+    ReadyPlayer,
+    StartNewRound
+  }
+
   alias OpticRed.Game.State.Encipher
 
   @words ~w{cat tractor house tree love luck money table floor christmas orange}
@@ -19,6 +25,29 @@ defmodule OpticRed.Game.State.Preparation do
   def new(data) do
     where(data: data, ready_players: [])
   end
+
+  #
+  # Action Handlers
+  #
+
+  def handle_action(%__MODULE__{}, %GenerateWords{team_id: team_id, words: words}) do
+    # TODO: Prevent generating words to non-existent team
+    [WordsGenerated.with(team_id: team_id, words: words)]
+  end
+
+  def handle_action(%__MODULE__{}, %ReadyPlayer{player_id: player_id, ready?: ready?}) do
+    # TODO: Prevent readying non-existent player
+    [PlayerReadied.with(player_id: player_id, ready?: ready?)]
+  end
+
+  def handle_action(%__MODULE__{}, %StartNewRound{}) do
+    # TODO: Prevent starting new round while not all players ready
+    [NewRoundStarted.empty()]
+  end
+
+  #
+  # Event Application
+  #
 
   def apply_event(%__MODULE__{data: data} = state, %WordsGenerated{team_id: team_id, words: words}) do
     team = data |> Data.get_team_by_id(team_id)

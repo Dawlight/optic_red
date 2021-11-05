@@ -92,8 +92,8 @@ defmodule OpticRed do
   Returns: {:ok, game_state}
   """
   @spec create_new_game(binary(), integer()) :: {:ok, State.t()}
-  def create_new_game(room_id, target_score) do
-    OpticRed.Room.create_new_game(room_id, target_score)
+  def create_new_game(room_id, target_points) do
+    OpticRed.Room.create_new_game(room_id, target_points)
   end
 
   def set_player_ready(room_id, player_id, ready?) do

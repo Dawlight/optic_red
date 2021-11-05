@@ -19,7 +19,7 @@ defmodule OpticRed.GameSateTest do
           "blue" => %{"red" => [3, 3, 3], "blue" => [3, 3, 3]}
         }
       }
-      |> Round.get_score(teams)
+      |> Round.get_points(teams)
   end
 
   test "Calculates no score" do
@@ -33,6 +33,6 @@ defmodule OpticRed.GameSateTest do
           "blue" => %{"red" => [3, 3, 3], "blue" => [3, 2, 1]}
         }
       }
-      |> Round.get_score(teams)
+      |> Round.get_points(teams)
   end
 end

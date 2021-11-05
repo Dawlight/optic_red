@@ -94,7 +94,7 @@ defmodule OpticRed.GameSateTest do
   end
 
   test "Set target score" do
-    %Data{target_score: 1337} = %Data{} |> Data.set_target_score(1337)
+    %Data{target_points: 1337} = %Data{} |> Data.set_target_points(1337)
   end
 
   test "Encipherer pool" do

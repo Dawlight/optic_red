@@ -1,11 +1,12 @@
 defmodule OpticRed.Game.Model.Data do
   defstruct [
-    :target_score,
+    :target_points,
     teams: [],
     players: [],
     rounds: [],
     words_by_team_id: %{},
-    score_by_team_id: %{},
+    points_by_team_id: %{},
+    strikes_by_team_id: %{},
     encipherer_pool_by_team_id: %{}
   ]
 
@@ -77,8 +78,8 @@ defmodule OpticRed.Game.Model.Data do
     data |> where(rounds: rounds)
   end
 
-  def set_target_score(%__MODULE__{} = data, target_score) do
-    data |> where(target_score: target_score)
+  def set_target_points(%__MODULE__{} = data, target_points) do
+    data |> where(target_points: target_points)
   end
 
   def set_team_words(%__MODULE__{words_by_team_id: words_by_team_id} = data, team, words) do
@@ -86,9 +87,14 @@ defmodule OpticRed.Game.Model.Data do
     data |> where(words_by_team_id: words_by_team_id)
   end
 
-  def set_team_score(%__MODULE__{score_by_team_id: score_by_team_id} = data, team, score) do
-    score_by_team_id = score_by_team_id |> Map.put(team.id, score)
-    data |> where(score_by_team_id: score_by_team_id)
+  def set_team_points(%__MODULE__{points_by_team_id: points_by_team_id} = data, team, points) do
+    points_by_team_id = points_by_team_id |> Map.put(team.id, points)
+    data |> where(points_by_team_id: points_by_team_id)
+  end
+
+  def set_team_strikes(%__MODULE__{strikes_by_team_id: strikes_by_team_id} = data, team, strikes) do
+    strikes_by_team_id = strikes_by_team_id |> Map.put(team.id, strikes)
+    data |> where(strikes_by_team_id: strikes_by_team_id)
   end
 
   def pop_random_encipherer(%__MODULE__{} = data, %Team{} = team) do
@@ -120,6 +126,36 @@ defmodule OpticRed.Game.Model.Data do
   ##
   ## Access
   ##
+
+  def get_teams_that_lost(%__MODULE__{} = data) do
+    %__MODULE__{
+      teams: teams,
+      strikes_by_team_id: strikes_by_team_id,
+      target_points: target_points
+    } = data
+
+    teams |> Enum.filter(fn team -> strikes_by_team_id[team.id] >= target_points end)
+  end
+
+  def get_teams_that_won(%__MODULE__{} = data) do
+    %__MODULE__{
+      teams: teams,
+      points_by_team_id: points_by_team_id,
+      target_points: target_points
+    } = data
+
+    teams |> Enum.filter(fn team -> points_by_team_id[team.id] >= target_points end)
+  end
+
+  def get_remaining_teams(%__MODULE__{} = data) do
+    %__MODULE__{
+      teams: teams,
+      strikes_by_team_id: strikes_by_team_id,
+      target_points: target_points
+    } = data
+
+    teams |> Enum.filter(fn team -> strikes_by_team_id[team.id] < target_points end)
+  end
 
   def get_team_by_id(%__MODULE__{teams: teams}, team_id) do
     teams |> Enum.find(fn team -> team.id == team_id end)
@@ -154,8 +190,12 @@ defmodule OpticRed.Game.Model.Data do
     words_by_team_id[team_id]
   end
 
-  def get_score(%__MODULE__{score_by_team_id: score_by_team_id}, %Team{id: team_id}) do
-    score_by_team_id[team_id]
+  def get_points(%__MODULE__{points_by_team_id: points_by_team_id}, %Team{id: team_id}) do
+    points_by_team_id[team_id]
+  end
+
+  def get_strikes(%__MODULE__{strikes_by_team_id: strikes_by_team_id}, %Team{id: team_id}) do
+    strikes_by_team_id[team_id]
   end
 
   #

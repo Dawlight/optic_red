@@ -46,6 +46,12 @@ defmodule OpticRed.Game.State do
     |> apply(:apply_event, [state, event])
   end
 
+  def handle_action(state, action) do
+    state
+    |> module()
+    |> apply(:handle_action, [state, action])
+  end
+
   defp module(state), do: state.__struct__
 
   def get_game_id_name(game_id), do: {:n, :l, {:game_state, game_id}}

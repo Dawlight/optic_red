@@ -103,20 +103,20 @@ defmodule OpticRed.Game.Model.Round do
     round |> where(attempts_by_team_id: attempts_by_team_id)
   end
 
-  def get_score(%__MODULE__{} = round, teams) do
+  def get_points(%__MODULE__{} = round, teams) do
     matchups =
       for decipherer_team <- teams,
           encipherer_team <- teams,
           into: [],
           do: {decipherer_team, encipherer_team}
 
-    score_by_team_id = for team <- teams, into: %{}, do: {team.id, 0}
+    points_by_team_id = for team <- teams, into: %{}, do: {team.id, 0}
 
     matchups
-    |> List.foldl(score_by_team_id, fn matchup, score_by_team_id ->
+    |> List.foldl(points_by_team_id, fn matchup, points_by_team_id ->
       {decipherer_team, _} = matchup
 
-      score_by_team_id
+      points_by_team_id
       |> Map.update!(decipherer_team.id, fn score -> score + get_vs_score(round, matchup) end)
     end)
   end

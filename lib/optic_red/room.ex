@@ -56,10 +56,10 @@ defmodule OpticRed.Room do
     end
   end
 
-  def create_new_game(room_id, target_score) do
+  def create_new_game(room_id, target_points) do
     case :gproc.where(get_room_name(room_id)) do
       :undefined -> {:error, :room_not_found}
-      pid -> GenServer.call(pid, {:create_new_game, target_score})
+      pid -> GenServer.call(pid, {:create_new_game, target_points})
     end
   end
 
@@ -229,10 +229,10 @@ defmodule OpticRed.Room do
   ##
 
   @impl GenServer
-  def handle_call({:create_new_game, target_score}, _from, data) do
+  def handle_call({:create_new_game, target_points}, _from, data) do
     %{games: games, players: players, teams: teams, player_team_map: player_team_map} = data
 
-    game_state = State.create_new(teams, players, player_team_map, target_score)
+    game_state = State.create_new(teams, players, player_team_map, target_points)
     games = [game_state | games]
 
     broadcast(data.room_topic, {:game_created, game_state})

@@ -16,7 +16,7 @@ defmodule OpticRed.GameSateTest do
     Setup,
     Preparation,
     Encipher,
-    Decipher,
+    Decipher
     RoundEnd,
     GameEnd
   }
@@ -144,7 +144,7 @@ defmodule OpticRed.GameSateTest do
       ]
       |> State.build_state(Setup.empty())
 
-    %Setup{data: %Data{target_score: 1337}} = state
+    %Setup{data: %Data{target_points: 1337}} = state
   end
 
   test "Setup -> GameStarted -> Preparation" do
@@ -232,7 +232,7 @@ defmodule OpticRed.GameSateTest do
     initial_state =
       Decipher.new(
         Data.where(
-          target_score: 2,
+          target_points: 2,
           rounds: [Round.where(code_by_team_id: %{"red" => [1, 2, 3], "blue" => [5, 5, 5]})],
           teams: ["red", "blue"] |> Enum.map(&%Team{id: &1})
         )
@@ -254,14 +254,14 @@ defmodule OpticRed.GameSateTest do
       ]
       |> State.build_state(state)
 
-    assert %RoundEnd{data: %Data{score_by_team_id: %{"blue" => -1, "red" => 1}}} = state
+    assert %RoundEnd{data: %Data{points_by_team_id: %{"blue" => -1, "red" => 1}}} = state
   end
 
   test "Decipher -> AttemptSubmitted -> GameEnd" do
     initial_state =
       Decipher.new(
         Data.where(
-          target_score: 1,
+          target_points: 1,
           rounds: [Round.where(code_by_team_id: %{"red" => [1, 2, 3], "blue" => [5, 5, 5]})],
           teams: ["red", "blue"] |> Enum.map(&%Team{id: &1})
         )
@@ -283,6 +283,6 @@ defmodule OpticRed.GameSateTest do
       ]
       |> State.build_state(state)
 
-    assert %GameEnd{data: %Data{score_by_team_id: %{"blue" => -1, "red" => 1}}} = state
+    assert %GameEnd{data: %Data{points_by_team_id: %{"blue" => -1, "red" => 1}}} = state
   end
 end
