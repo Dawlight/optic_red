@@ -1,4 +1,4 @@
-defmodule OpticRed.GameSateTest do
+defmodule OpticRed.SetupTest do
   @moduledoc false
 
   use ExUnit.Case, async: false

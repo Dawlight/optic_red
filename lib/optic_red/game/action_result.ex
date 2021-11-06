@@ -12,4 +12,8 @@ defmodule OpticRed.Game.ActionResult do
   def add(%__MODULE__{events: events}, %__MODULE__{events: new_events}) do
     new(events ++ new_events)
   end
+
+  def add(%__MODULE__{events: events}, new_events) do
+    new(events ++ new_events)
+  end
 end

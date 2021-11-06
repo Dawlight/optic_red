@@ -1,10 +1,12 @@
 defmodule OpticRed.Game.State.Preparation do
   alias OpticRed.Game.Model.Data
-  defstruct data: %Data{}, ready_players: []
+  defstruct data: %Data{}, ready_players: MapSet.new()
 
   use OpticRed.Game.State
 
   alias OpticRed.Game.Model.Round
+
+  alias OpticRed.Game.ActionResult
 
   alias OpticRed.Game.Event.{
     PlayerReadied,
@@ -23,26 +25,63 @@ defmodule OpticRed.Game.State.Preparation do
   @words ~w{cat tractor house tree love luck money table floor christmas orange}
 
   def new(data) do
-    where(data: data, ready_players: [])
+    where(data: data, ready_players: MapSet.new())
   end
 
   #
   # Action Handlers
   #
 
-  def handle_action(%__MODULE__{}, %GenerateWords{team_id: team_id, words: words}) do
-    # TODO: Prevent generating words to non-existent team
-    [WordsGenerated.with(team_id: team_id, words: words)]
+  def handle_action(%__MODULE__{data: data}, %GenerateWords{team_id: team_id, words: words}) do
+    case data |> Data.get_team_by_id(team_id) do
+      nil ->
+        ActionResult.empty()
+
+      _ ->
+        ActionResult.new([WordsGenerated.with(team_id: team_id, words: words)])
+    end
   end
 
-  def handle_action(%__MODULE__{}, %ReadyPlayer{player_id: player_id, ready?: ready?}) do
-    # TODO: Prevent readying non-existent player
-    [PlayerReadied.with(player_id: player_id, ready?: ready?)]
+  def handle_action(%__MODULE__{} = state, %ReadyPlayer{player_id: player_id, ready?: ready?}) do
+    %__MODULE__{data: data, ready_players: ready_players} = state
+
+    case data |> Data.get_player_by_id(player_id) do
+      nil ->
+        ActionResult.empty()
+
+      player ->
+        player_ready? = ready_players |> MapSet.member?(player)
+
+        case player_ready? != ready? do
+          true ->
+            ActionResult.new([PlayerReadied.with(player_id: player_id, ready?: ready?)])
+
+          false ->
+            ActionResult.empty()
+        end
+    end
   end
 
-  def handle_action(%__MODULE__{}, %StartNewRound{}) do
-    # TODO: Prevent starting new round while not all players ready
-    [NewRoundStarted.empty()]
+  def handle_action(%__MODULE__{} = state, %StartNewRound{}) do
+    %__MODULE__{data: data, ready_players: ready_players} = state
+    %Data{teams: teams} = data
+
+    all_players = MapSet.new(data.players)
+
+    all_teams_have_words? =
+      !Enum.empty?(teams) and
+        teams
+        |> Enum.all?(fn team ->
+          data.words_by_team_id[team.id] != nil
+        end)
+
+    case MapSet.equal?(all_players, ready_players) and all_teams_have_words? do
+      true ->
+        ActionResult.new([NewRoundStarted.empty()])
+
+      false ->
+        ActionResult.empty()
+    end
   end
 
   #
