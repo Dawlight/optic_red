@@ -13,8 +13,8 @@ defmodule OpticRed.Game.State.Decipher do
 
   alias OpticRed.Game.Event.{
     AttemptSubmitted,
-    ScoreIncremented,
-    StrikeIncremented,
+    PointsIncremented,
+    StrikesIncremented,
     LeadTeamPassed,
     RoundEnded,
     GameEnded,
@@ -40,16 +40,33 @@ defmodule OpticRed.Game.State.Decipher do
   #
 
   def handle_action(%__MODULE__{} = state, %SubmitAttempt{} = action) do
-    action_result = ActionResult.new([])
+    %__MODULE__{data: data, lead_team: lead_team} = state
+    %Data{teams: teams} = data
 
-    with {:continue, action_result} <- check_valid_submission(state, action, action_result),
-         {:continue, action_result} <- check_scoring(state, action, action_result),
-         {:continue, action_result} <- check_last_submission(state, action, action_result),
-         {:continue, action_result} <- check_remaining_lead_teams(state, action, action_result),
-         {:continue, action_result} <- check_game_end(state, action, action_result) do
-      action_result
-    else
-      {:break, action_result} -> action_result
+    current_round = data |> Data.get_round(0)
+
+    initialized_round? =
+      teams |> Enum.all?(fn team -> current_round.attempts_by_team_id[team.id] != nil end)
+
+    result = ActionResult.new([])
+
+    case {initialized_round?, lead_team} do
+      {_, nil} ->
+        result
+
+      {false, _} ->
+        result
+
+      {true, _} ->
+        with {:continue, result} <- check_valid_submission(state, action, result),
+             {:continue, result} <- check_scoring(state, action, result),
+             {:continue, result} <- check_last_submission(state, action, result),
+             {:continue, result} <- check_remaining_lead_teams(state, action, result),
+             {:continue, result} <- check_game_end(state, action, result) do
+          result
+        else
+          {:break, result} -> result
+        end
     end
   end
 
@@ -70,8 +87,8 @@ defmodule OpticRed.Game.State.Decipher do
          action_result
          |> ActionResult.add([
            AttemptSubmitted.with(
-             deciphering_team_id: team_id,
-             enciphering_team_id: lead_team.id,
+             decipherer_team_id: team_id,
+             encipherer_team_id: lead_team.id,
              attempt: attempt
            )
          ])}
@@ -84,10 +101,10 @@ defmodule OpticRed.Game.State.Decipher do
     action_result =
       cond do
         should_receive_point?(state, action) ->
-          action_result |> ActionResult.add([ScoreIncremented.with(team_id: team_id)])
+          action_result |> ActionResult.add([PointsIncremented.with(team_id: team_id)])
 
         should_receive_strike?(state, action) ->
-          action_result |> ActionResult.add([StrikeIncremented.with(team_id: team_id)])
+          action_result |> ActionResult.add([StrikesIncremented.with(team_id: team_id)])
 
         true ->
           action_result
@@ -153,46 +170,60 @@ defmodule OpticRed.Game.State.Decipher do
   end
 
   defp check_game_end(%__MODULE__{data: data} = state, %SubmitAttempt{} = action, action_result) do
-    teams_that_won = teams_that_won(state, action)
-    teams_that_lost = teams_that_lost(state, action)
+    winning_teams = winning_teams(state, action)
+    losing_teams = losing_teams(state, action)
+    unaffected_teams = (data.teams -- losing_teams) -- winning_teams
 
-    remaining_teams = Data.get_remaining_teams(data) -- teams_that_lost
+    losing_team_events = losing_teams |> Enum.map(fn team -> TeamLost.with(team_id: team.id) end)
 
-    winning_team_events =
-      teams_that_won |> Enum.map(fn team -> TeamWon.with(team_id: team.id) end)
-
-    losing_team_events =
-      teams_that_lost |> Enum.map(fn team -> TeamLost.with(team_id: team.id) end)
+    winning_team_events = winning_teams |> Enum.map(fn team -> TeamWon.with(team_id: team.id) end)
 
     action_result =
-      action_result
-      |> ActionResult.add(losing_team_events)
-      |> ActionResult.add(winning_team_events)
-
-    ## DO STUFF
-    action_result =
-      case remaining_teams do
-        [] ->
+      cond do
+        # At least one team won!
+        length(winning_teams) >= 1 ->
           action_result
+          |> ActionResult.add(losing_team_events)
+          |> ActionResult.add(to_team_lost_events(unaffected_teams))
+          |> ActionResult.add(winning_team_events)
           |> ActionResult.add([GameEnded.empty()])
 
-        _ ->
-          case winning_team_events do
-            [] ->
-              action_result
-              |> ActionResult.add([RoundEnded.empty()])
+        # Last man standing!
+        length(unaffected_teams) == 1 ->
+          action_result
+          |> ActionResult.add(losing_team_events)
+          |> ActionResult.add(to_team_won_events(unaffected_teams))
+          |> ActionResult.add([GameEnded.empty()])
 
-            _ ->
-              action_result
-              |> ActionResult.add([GameEnded.empty()])
-          end
+        # Everyone lost...
+        winning_teams == [] and unaffected_teams == [] ->
+          action_result
+          |> ActionResult.add(losing_team_events)
+          |> ActionResult.add([GameEnded.empty()])
+
+        # The world moves on.
+        true ->
+          action_result
+          |> ActionResult.add(losing_team_events)
+          |> ActionResult.add(winning_team_events)
+          |> ActionResult.add([RoundEnded.empty()])
       end
 
+    ## DO STUFF
     {:break, action_result}
   end
 
-  def teams_that_won(%__MODULE__{data: data} = state, %SubmitAttempt{} = action) do
+  def to_team_lost_events(teams) do
+    teams |> Enum.map(fn team -> TeamLost.with(team_id: team.id) end)
+  end
+
+  def to_team_won_events(teams) do
+    teams |> Enum.map(fn team -> TeamWon.with(team_id: team.id) end)
+  end
+
+  def winning_teams(%__MODULE__{data: data} = state, %SubmitAttempt{} = action) do
     %Data{target_points: target_points} = data
+
     points_by_team_id = extrapolated_points_by_team_id(state, action)
 
     data
@@ -200,7 +231,7 @@ defmodule OpticRed.Game.State.Decipher do
     |> Enum.filter(fn team -> points_by_team_id[team.id] >= target_points end)
   end
 
-  def teams_that_lost(%__MODULE__{data: data} = state, %SubmitAttempt{} = action) do
+  def losing_teams(%__MODULE__{data: data} = state, %SubmitAttempt{} = action) do
     %Data{target_points: target_points} = data
     strikes_by_team_id = extrapolated_strikes_by_team_id(state, action)
 
@@ -219,12 +250,13 @@ defmodule OpticRed.Game.State.Decipher do
 
       case team.id == team_id and should_receive_point?(state, action) do
         true ->
-          points + 1
+          {team.id, points + 1}
 
         false ->
-          points
+          {team.id, points}
       end
     end)
+    |> Map.new()
   end
 
   def extrapolated_strikes_by_team_id(%__MODULE__{} = state, %SubmitAttempt{} = action) do
@@ -235,14 +267,15 @@ defmodule OpticRed.Game.State.Decipher do
     |> Enum.map(fn team ->
       strikes = data |> Data.get_strikes(team)
 
-      case team.id == team_id and should_receive_point?(state, action) do
+      case team.id == team_id and should_receive_strike?(state, action) do
         true ->
-          strikes + 1
+          {team.id, strikes + 1}
 
         false ->
-          strikes
+          {team.id, strikes}
       end
     end)
+    |> Map.new()
   end
 
   defp teams_without_submission(%__MODULE__{data: data, lead_team: lead_team}) do
