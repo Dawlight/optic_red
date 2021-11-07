@@ -1,4 +1,4 @@
-defmodule OpticRed.PreparationTest do
+defmodule OpticRed.PreparationActionsTest do
   @moduledoc false
 
   use ExUnit.Case, async: false

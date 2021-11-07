@@ -1,4 +1,4 @@
-defmodule OpticRed.DecipherTest do
+defmodule OpticRed.DecipherActionsTest do
   @moduledoc false
 
   use ExUnit.Case, async: false
