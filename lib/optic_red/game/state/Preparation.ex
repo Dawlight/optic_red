@@ -102,13 +102,13 @@ defmodule OpticRed.Game.State.Preparation do
     ready_players =
       case ready? do
         true ->
-          [player | ready_players] |> Enum.uniq_by(& &1.id)
+          ready_players |> MapSet.put(player)
 
         false ->
-          ready_players |> List.delete(player)
+          ready_players |> MapSet.delete(player)
       end
 
-    %__MODULE__{state | ready_players: ready_players}
+    state |> where(ready_players: ready_players)
   end
 
   def apply_event(%__MODULE__{data: data}, %NewRoundStarted{}) do

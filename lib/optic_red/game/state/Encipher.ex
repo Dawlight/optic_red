@@ -60,19 +60,10 @@ defmodule OpticRed.Game.State.Encipher do
   def apply_event(%__MODULE__{data: data} = state, %CluesSubmitted{team_id: team_id, clues: clues}) do
     data = data |> Data.update_round(0, &Round.set_clues(&1, team_id, clues))
 
-    if all_clues_submitted?(data) do
-      Decipher.new(data)
-    else
-      state |> where(data: data)
-    end
+    state |> where(data: data)
   end
 
-  defp all_clues_submitted?(%Data{teams: teams} = data) do
-    teams
-    |> Enum.all?(fn team ->
-      data
-      |> Data.get_round(0)
-      |> Round.get_clues(team.id) != nil
-    end)
+  def apply_event(%__MODULE__{data: data}, %AllCluesSubmitted{}) do
+    Decipher.new(data)
   end
 end

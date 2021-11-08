@@ -118,9 +118,16 @@ defmodule OpticRed.Game.Model.Data do
     %__MODULE__{encipherer_pool_by_team_id: encipherer_pools} = data
 
     players = data |> Data.get_players_by_team(team)
-    encipherer_pools = encipherer_pools |> Map.put(team.id, players)
 
-    data |> where(encipherer_pool_by_team_id: encipherer_pools)
+    case players do
+      [] ->
+        raise "Need to have at least one player per team"
+
+      _ ->
+        encipherer_pools = encipherer_pools |> Map.put(team.id, players)
+
+        data |> where(encipherer_pool_by_team_id: encipherer_pools)
+    end
   end
 
   ##
