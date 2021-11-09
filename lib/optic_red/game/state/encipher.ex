@@ -23,6 +23,32 @@ defmodule OpticRed.Game.State.Encipher do
   # Action handlers
   #
 
+  def new(data) do
+    %Data{teams: teams} = data
+
+    {encipherer_by_team_id, data} =
+      teams
+      |> List.foldl({%{}, data}, fn team, {encipherer_by_team_id, data} ->
+        {encipherer, data} = data |> Data.pop_random_encipherer(team)
+        {encipherer_by_team_id |> Map.put(team.id, encipherer), data}
+      end)
+
+    code_by_team_id = for team <- teams, into: %{}, do: {team.id, get_random_code()}
+
+    new_round =
+      Round.empty()
+      |> Round.with_default_attempts(teams)
+      |> Round.with_default_clues(teams)
+      |> Round.with_encipherers(encipherer_by_team_id)
+      |> Round.with_codes(code_by_team_id)
+
+    data = data |> Data.add_round(new_round)
+
+    where(data: data)
+  end
+
+  defp get_random_code(), do: Enum.take_random(1..4, 3)
+
   def handle_action(%__MODULE__{data: data}, %SubmitClues{team_id: team_id, clues: clues}) do
     %Data{teams: teams} = data
 

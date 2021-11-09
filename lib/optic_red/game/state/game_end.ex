@@ -1,10 +1,8 @@
 defmodule OpticRed.Game.State.GameEnd do
   alias OpticRed.Game.Model.Data
-  defstruct data: %Data{}
+  defstruct data: %Data{}, winning_teams: [], losing_teams: []
 
-  def new(%Data{} = data) do
-    %__MODULE__{data: data}
-  end
+  use OpticRed.Game.State
 
   def apply_event(%__MODULE__{} = state, _event) do
     state

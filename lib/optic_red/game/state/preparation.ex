@@ -4,8 +4,6 @@ defmodule OpticRed.Game.State.Preparation do
 
   use OpticRed.Game.State
 
-  alias OpticRed.Game.Model.Round
-
   alias OpticRed.Game.ActionResult
 
   alias OpticRed.Game.Event.{
@@ -112,27 +110,6 @@ defmodule OpticRed.Game.State.Preparation do
   end
 
   def apply_event(%__MODULE__{data: data}, %NewRoundStarted{}) do
-    %Data{teams: teams} = data
-
-    {encipherer_by_team_id, data} =
-      teams
-      |> List.foldl({%{}, data}, fn team, {encipherer_by_team_id, data} ->
-        {encipherer, data} = data |> Data.pop_random_encipherer(team)
-        {encipherer_by_team_id |> Map.put(team.id, encipherer), data}
-      end)
-
-    code_by_team_id = for team <- teams, into: %{}, do: {team.id, get_random_code()}
-
-    new_round =
-      Round.empty()
-      |> Round.with_default_attempts(teams)
-      |> Round.with_default_clues(teams)
-      |> Round.with_encipherers(encipherer_by_team_id)
-      |> Round.with_codes(code_by_team_id)
-
-    data = data |> Data.add_round(new_round)
-    Encipher.where(data: data)
+    Encipher.new(data)
   end
-
-  defp get_random_code(), do: Enum.take_random(1..4, 3)
 end

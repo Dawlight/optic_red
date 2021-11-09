@@ -3,11 +3,13 @@ defmodule OpticRed.Game.State.Decipher do
 
   defstruct data: %Data{},
             lead_team: nil,
-            remaining_lead_teams: []
+            remaining_lead_teams: [],
+            winning_teams: [],
+            losing_teams: []
 
   use OpticRed.Game.State
 
-  alias OpticRed.Game.Model.Round
+  alias OpticRed.Game.Model.{Round, Team}
 
   alias OpticRed.Game.ActionResult
 
@@ -23,7 +25,11 @@ defmodule OpticRed.Game.State.Decipher do
   }
 
   alias OpticRed.Game.Action.{SubmitAttempt}
-  alias OpticRed.Game.State.{RoundEnd, GameEnd}
+
+  alias OpticRed.Game.State.{
+    RoundEnd,
+    GameEnd
+  }
 
   def new(%Data{teams: teams} = data) do
     [lead_team | remaining_lead_teams] = teams
@@ -286,11 +292,11 @@ defmodule OpticRed.Game.State.Decipher do
     |> Enum.map(fn team -> team.id end)
   end
 
-  def apply_event(%__MODULE__{} = state, %AttemptSubmitted{} = event) do
-    %__MODULE__{
-      data: data
-    } = state
+  #
+  # Event Handlers
+  #
 
+  def apply_event(%__MODULE__{data: data} = state, %AttemptSubmitted{} = event) do
     %AttemptSubmitted{
       decipherer_team_id: decipherer_team_id,
       encipherer_team_id: encipherer_team_id,
@@ -305,5 +311,57 @@ defmodule OpticRed.Game.State.Decipher do
       )
 
     state |> where(data: data)
+  end
+
+  def apply_event(%__MODULE__{data: data} = state, %PointsIncremented{team_id: team_id}) do
+    team = %Team{id: team_id}
+    points = data |> Data.get_points(team)
+    data = data |> Data.set_team_points(team, points + 1)
+
+    state |> where(data: data)
+  end
+
+  def apply_event(%__MODULE__{data: data} = state, %StrikesIncremented{team_id: team_id}) do
+    team = %Team{id: team_id}
+    strikes = data |> Data.get_strikes(team)
+    data = data |> Data.set_team_strikes(team, strikes + 1)
+
+    state |> where(data: data)
+  end
+
+  def apply_event(%__MODULE__{data: data} = state, %LeadTeamPassed{} = event) do
+    %LeadTeamPassed{
+      lead_team: lead_team,
+      remaining_lead_teams: remaining_lead_teams
+    } = event
+
+    state
+    |> where(
+      data: data,
+      lead_team: lead_team,
+      remaining_lead_teams: remaining_lead_teams
+    )
+  end
+
+  def apply_event(%__MODULE__{data: data}, %RoundEnded{}) do
+    RoundEnd.new(data)
+  end
+
+  def apply_event(%__MODULE__{data: data}, %GameEnded{}) do
+    GameEnd.where(data: data)
+  end
+
+  def apply_event(%__MODULE__{} = state, %TeamLost{team_id: team_id}) do
+    %__MODULE__{data: data, losing_teams: losing_teams} = state
+
+    team = data |> Data.get_team_by_id(team_id)
+    state |> where(losing_teams: [team | losing_teams])
+  end
+
+  def apply_event(%__MODULE__{} = state, %TeamWon{team_id: team_id}) do
+    %__MODULE__{data: data, winning_teams: winning_teams} = state
+
+    team = data |> Data.get_team_by_id(team_id)
+    state |> where(winning_teams: [team | winning_teams])
   end
 end
