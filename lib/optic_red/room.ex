@@ -3,8 +3,13 @@ defmodule OpticRed.Room do
 
   alias Phoenix.PubSub
   alias OpticRed.Game.State
-  alias OpticRed.Game.Model.Team
-  alias OpticRed.Game.Model.Player
+  alias OpticRed.Game.State.Setup
+
+  alias OpticRed.Game.Model.{
+    Data,
+    Team,
+    Player
+  }
 
   ###
   ### API
@@ -132,17 +137,14 @@ defmodule OpticRed.Room do
 
   @impl GenServer
   def init(room_id) do
-    teams = [%Team{id: "red", name: "Team Red"}, %Team{id: "blue", name: "Team Blue"}]
-
     initial_state = %{
       room_id: room_id,
-      players: [],
-      teams: teams,
-      player_team_map: %{},
       room_topic: "room:#{room_id}",
-      games: []
+      players: [],
+      histories: [[]]
     }
 
+    # TODO: Make everything use the histry instead of aggregated game state!
     {:ok, initial_state}
   end
 
