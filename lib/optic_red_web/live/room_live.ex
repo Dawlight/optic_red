@@ -3,14 +3,10 @@ defmodule OpticRedWeb.Live.RoomLive do
 
   alias Phoenix.PubSub
 
-  alias OpticRed.Game.Model.{
-    Data,
-    Team
-  }
-
   @default_assigns %{
     test: "Hello!",
     players: [],
+    player_metadata: %{},
     current_player_id: nil,
     room_id: nil,
     history: [],
@@ -52,6 +48,17 @@ defmodule OpticRedWeb.Live.RoomLive do
   @impl true
   def handle_params(_params, _uri, socket) do
     {:noreply, socket}
+  end
+
+  ###
+  ### Presence
+  ###
+
+  def handle_info(%{event: "presence_diff"}, socket) do
+    %{assigns: %{room_id: room_id}} = socket
+
+    player_metadata = get_player_metadata(room_id) |> IO.inspect(label: "presence_diff")
+    {:noreply, socket |> assign(player_metadata: player_metadata)}
   end
 
   ###
@@ -199,9 +206,7 @@ defmodule OpticRedWeb.Live.RoomLive do
   ### TODO: Monitor instead of terminate
 
   @impl true
-  def terminate(_, %{assigns: assigns} = socket) do
-    IO.inspect(socket, label: "Terminate")
-    OpticRed.remove_player(assigns.room_id, assigns.current_player_id)
+  def terminate(_, %{assigns: assigns}) do
     PubSub.unsubscribe(OpticRed.PubSub, room_topic(assigns.room_id))
     :shutdown
   end
@@ -210,81 +215,29 @@ defmodule OpticRedWeb.Live.RoomLive do
   ### View helpers
   ###
 
-  def get_player_view(assigns) do
-    current_player_id = assigns[:current_player_id]
-    player_team_map = assigns[:player_team_map]
-    game_state = assigns[:game_state]
+  # def get_player_view(assigns) do
+  #   current_player_id = assigns[:current_player_id]
+  #   player_team_map = assigns[:player_team_map]
+  #   game_state = assigns[:game_state]
 
-    current_team_id = player_team_map[current_player_id]
+  #   current_team_id = player_team_map[current_player_id]
+  # end
 
-    case current_player_id do
-      nil ->
-        nil
+  # def page_loader_classes(assigns) do
+  #   case assigns[:loading] do
+  #     false ->
+  #       case get_player_view(assigns) do
+  #         nil -> "pageloader is-active"
+  #         _ -> "pageloader"
+  #       end
 
-      _ ->
-        case game_state do
-          nil ->
-            :pre_game
+  #     true ->
+  #       "pageloader is-active"
 
-          %State{current: current_state, data: data} ->
-            %Data{rounds: rounds, lead_team_id: lead_team_id} = data
-
-            case current_state do
-              :setup ->
-                :setup
-
-              :encipher ->
-                [current_round | _previous_rounds] = rounds
-
-                current_player_team_encipherer_player_id =
-                  current_round[current_team_id].encipherer_player_id
-
-                case current_player_team_encipherer_player_id do
-                  ^current_player_id ->
-                    {:encipher, :active}
-
-                  _ ->
-                    {:encipher, :passive}
-                end
-
-              :decipher ->
-                [current_round | _previous_rounds] = rounds
-
-                lead_team_encipherer_player_id = current_round[lead_team_id].encipherer_player_id
-
-                case lead_team_encipherer_player_id do
-                  ^current_player_id ->
-                    {:decipher, :passive}
-
-                  _ ->
-                    {:decipher, :active}
-                end
-
-              :round_end ->
-                :round_end
-
-              _ ->
-                nil
-            end
-        end
-    end
-  end
-
-  def page_loader_classes(assigns) do
-    case assigns[:loading] do
-      false ->
-        case get_player_view(assigns) do
-          nil -> "pageloader is-active"
-          _ -> "pageloader"
-        end
-
-      true ->
-        "pageloader is-active"
-
-      _ ->
-        "pageloader"
-    end
-  end
+  #     _ ->
+  #       "pageloader"
+  #   end
+  # end
 
   ###
   ### Private
@@ -296,25 +249,46 @@ defmodule OpticRedWeb.Live.RoomLive do
 
     %{"player_id" => current_player_id} = session
     {:ok, players} = OpticRed.get_players(room_id)
-    {:ok, teams} = OpticRed.get_teams(room_id)
-    {:ok, player_team_map} = OpticRed.get_player_team_map(room_id)
+    # {:ok, teams} = OpticRed.get_teams(room_id)
+    # {:ok, player_team_map} = OpticRed.get_player_team_map(room_id)
 
-    game_state =
-      case OpticRed.get_game_state(room_id) do
-        {:ok, game_state} -> game_state
-        {:error, _} -> nil
-      end
+    {:ok, _} =
+      OpticRed.Presence.track(
+        self(),
+        room_topic(room_id),
+        current_player_id,
+        %{status: :online}
+      )
+
+    # game_state =
+    #   case OpticRed.get_game_state(room_id) do
+    #     {:ok, game_state} -> game_state
+    #     _ -> nil
+    #   end
+
+    player_metadata = get_player_metadata(room_id)
 
     {:ok,
      assign(socket,
        test: "Hello!",
        players: players,
-       teams: teams,
-       player_team_map: player_team_map,
+       player_metadata: player_metadata,
+       #  teams: teams,
+       #  player_team_map: player_team_map,
        current_player_id: current_player_id,
-       game_state: game_state,
+       #  game_state: game_state,
        loading: false
      )}
+  end
+
+  defp get_player_metadata(room_id) do
+    OpticRed.Presence.list(room_topic(room_id))
+    |> Enum.map(fn {player_id, data} ->
+      {player_id,
+       data[:metas]
+       |> List.first()}
+    end)
+    |> Map.new()
   end
 
   defp subscribe_to_room(room_id) do

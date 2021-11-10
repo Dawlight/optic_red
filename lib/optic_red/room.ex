@@ -124,10 +124,10 @@ defmodule OpticRed.Room do
     end
   end
 
-  def has_joined?(room_id, player_id) do
+  def player_exists?(room_id, player_id) do
     case :gproc.where(get_room_name(room_id)) do
       :undefined -> {:error, :room_not_found}
-      pid -> GenServer.call(pid, {:has_joined, player_id})
+      pid -> GenServer.call(pid, {:player_exists?, player_id})
     end
   end
 
@@ -290,7 +290,7 @@ defmodule OpticRed.Room do
   end
 
   @impl GenServer
-  def handle_call({:has_joined, player_id}, _from, %{players: players} = data) do
+  def handle_call({:player_exists?, player_id}, _from, %{players: players} = data) do
     case Enum.find(players, nil, fn player -> elem(player, 0) == player_id end) do
       nil ->
         {:reply, false, data}

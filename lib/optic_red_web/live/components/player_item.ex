@@ -5,7 +5,7 @@ defmodule OpticRedWeb.Live.Components.PlayerItem do
   alias AftermathWeb.LiveHelpers
 
   def render(assigns) do
-    render_template("player_item.html", assigns)
+    render_template("player_item.html", assigns |> IO.inspect(label: "PlayerItem"))
   end
 
   def get_classes(player, player_team_map, current_player_id) do

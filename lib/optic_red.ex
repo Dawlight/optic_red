@@ -132,6 +132,10 @@ defmodule OpticRed do
     OpticRed.Room.get_players(room_id)
   end
 
+  def player_exists?(room_id, player_id) do
+    OpticRed.Room.player_exists?(room_id, player_id)
+  end
+
   @doc """
   Get teams
 

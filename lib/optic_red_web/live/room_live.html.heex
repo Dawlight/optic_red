@@ -4,24 +4,16 @@
 <% alias OpticRedWeb.Live.DecipherLive %>
 <% alias OpticRedWeb.Live.RoundEndLive %>
 <div>
-  <div class={page_loader_classes(assigns)}><span class="title">Loading</span></div>
+  <%# <div class={page_loader_classes(assigns)}><span class="title">Loading</span></div> %>
   <%=
     state = [
-      teams: @teams,
       players: @players,
-      player_team_map: @player_team_map,
+      player_metadata: @player_metadata,
       current_player_id: @current_player_id,
-      game_state: @game_state,
       loading: @loading
     ]
 
-    case get_player_view(assigns) do
-      :pre_game -> live_component(PreGameLive, [{:id,:pre_game} | state])
-      :setup -> live_component(SetupLive, [{:id,:setup} | state])
-      {:encipher, role} -> live_component(EncipherLive, [{:id, :encipher} | [{:role, role} | state]])
-      {:decipher, role} -> live_component(DecipherLive, [{:id, :decipher} | [{:role, role} | state]])
-      :round_end -> live_component(RoundEndLive, [{:id, :round_end} | state])
-      nil -> "Wut"
-    end
-  %>
+
+    live_component(PreGameLive, [{:id,:pre_game} | state])
+   %>
 </div>

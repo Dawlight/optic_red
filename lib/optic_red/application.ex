@@ -13,6 +13,7 @@ defmodule OpticRed.Application do
       OpticRedWeb.Telemetry,
       # Start the PubSub system
       {Phoenix.PubSub, name: OpticRed.PubSub},
+      OpticRed.Presence,
       # Start the Endpoint (http/https)
       OpticRedWeb.Endpoint,
       # Start a worker by calling: OpticRed.Worker.start_link(arg)

@@ -26,6 +26,7 @@
         <% sorted_players = players_sorted_by_team(assigns) %>
         <%= for player <- sorted_players do %>
           <PlayerItem.render player={player}
+                          metadata={@player_metadata[player.id]}
                          player_team_map={@player_team_map}
                          current_player_id={@current_player_id} />
           <% end %>
