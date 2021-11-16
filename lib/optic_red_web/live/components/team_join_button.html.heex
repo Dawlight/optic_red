@@ -1,22 +1,22 @@
 <% alias OpticRedWeb.Live.Components.TeamJoinButton %>
-
 <div class="column is-6">
-  <%= if @player_team_map[@current_player_id] == @team.id do %>
-  <button phx-click="leave_team"
+  <% current_player = @players |> Enum.find(fn player -> player.id == @current_player_id end) %>
+  <%= if current_player.team_id == @team.id do %>
+    <button phx-click="leave_team"
           class="button is-medium is-rounded is-fullwidth">
-    Leave
-  </button>
+      Leave
+    </button>
   <% else %>
-  <button phx-click="join_team"
+    <button phx-click="join_team"
           phx-value-team_id={@team.id}
           class={TeamJoinButton.get_classes(@team,
-          @player_team_map,
+          @players,
           @current_player_id)}
           disabled={TeamJoinButton.button_disabled?(@team,
           @teams,
-          @player_team_map,
+          @players,
           @current_player_id)}>
-    <%= @team.name %>
-  </button>
+      <%= @team.name %>
+    </button>
   <% end %>
 </div>

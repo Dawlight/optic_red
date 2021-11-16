@@ -30,8 +30,8 @@ defmodule OpticRed.Game.State.Setup do
     StartGame
   }
 
-  def new(%__MODULE__{} = state, data) do
-    state |> where(data: data)
+  def new() do
+    where(data: Data.empty())
   end
 
   #

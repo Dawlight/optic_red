@@ -1,0 +1,43 @@
+<div class="p-2"
+     style="height: 100%">
+  <div class="content">
+    <h1 class="title">This is your team's secret words</h1>
+    <h2 class="title is-subtitle">Look them up if you're not sure what they mean, and proceed by starting the game</h2>
+    <h2 class="title is-subtitle">
+      <%= readied_players(assigns) |> Enum.count() %>/<%= @players |> Enum.count()%>
+      players ready</h2>
+    <%= if readied?(assigns) do %>
+      <button phx-click="ready_toggle"
+            phx-value-ready="false"
+            class="button is-fullwidth is-rounded is-success is-medium is-uppercase">
+        Unready
+      </button>
+    <% else %>
+      <button phx-click="ready_toggle"
+            phx-value-ready="true"
+            class="button is-fullwidth is-rounded is-medium is-uppercase">
+        Ready up
+      </button>
+    <% end %>
+  </div>
+  <% player_team_id = @player_team_map[@current_player_id] %>
+  <div class="columns is-multiline is-mobile">
+    <%= for {word, index} <- @game_state.data.team_words_map[player_team_id] |> Enum.with_index() do %>
+      <div class="column is-6">
+        <div class="list-item box has-background-danger">
+          <div class="list-item-image">
+            <figure class="image is-64x64">
+              <div
+                 style="width: 64px; height: 64px; text-align: center; padding-top: 15px; font-size: 32px; line-height: 32px; background: lightgrey; border-radius: 50%;">
+                <%= index + 1 %>
+              </div>
+            </figure>
+          </div>
+          <div class="list-item-content">
+            <div class="list-item-title is-uppercase"><%= word %></div>
+          </div>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</div>

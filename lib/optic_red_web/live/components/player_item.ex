@@ -8,15 +8,15 @@ defmodule OpticRedWeb.Live.Components.PlayerItem do
     render_template("player_item.html", assigns |> IO.inspect(label: "PlayerItem"))
   end
 
-  def get_classes(player, player_team_map, current_player_id) do
+  def get_classes(player, current_player_id) do
     []
-    |> add_team_color(player, player_team_map, current_player_id)
+    |> add_team_color(player, current_player_id)
     |> add_highlight(player, current_player_id)
     |> Enum.join(" ")
   end
 
-  defp add_team_color(classes, player, player_team_map, current_player_id) do
-    case player_team_map[player.id] do
+  defp add_team_color(classes, player, current_player_id) do
+    case player.team_id do
       "red" -> ["is-danger" | classes]
       "blue" -> ["is-info" | classes]
       nil -> classes

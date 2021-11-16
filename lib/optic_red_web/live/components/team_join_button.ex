@@ -9,12 +9,16 @@ defmodule OpticRedWeb.Live.Components.TeamJoinButton do
     render_template("team_join_button.html", assigns)
   end
 
-  def button_disabled?(team, teams, player_team_map, current_player_id) do
-    assigned_player_count = player_team_map |> Enum.count()
+  def button_disabled?(team, teams, players, current_player_id) do
+    assigned_player_count =
+      players |> Enum.filter(fn player -> player.team_id != nil end) |> Enum.count()
+
+    current_player = players |> Enum.find(nil, fn player -> player.id == current_player_id end)
+
     team_count = teams |> Enum.count()
 
     team_count_average =
-      case player_team_map[current_player_id] do
+      case current_player.team_id do
         nil ->
           assigned_player_count / team_count
 
@@ -22,22 +26,21 @@ defmodule OpticRedWeb.Live.Components.TeamJoinButton do
           (assigned_player_count - 1) / team_count
       end
 
-    get_player_count(team.id, player_team_map) > team_count_average
+    team_player_count = players |> Enum.count(fn player -> player.team_id == team.id end)
+
+    team_player_count > team_count_average
   end
 
-  defp get_player_count(team_id, player_team_map) do
-    player_team_map
-    |> Enum.count(fn {_, assigned_team_id} -> assigned_team_id == team_id end)
-  end
-
-  def get_classes(team, player_team_map, current_player_id) do
+  def get_classes(team, players, current_player_id) do
     ["button", "is-medium", "is-rounded", "is-fullwidth"]
-    |> add_team_color(team, player_team_map, current_player_id)
+    |> add_team_color(team, players, current_player_id)
     |> Enum.join(" ")
   end
 
-  defp add_team_color(classes, %Team{id: team_id}, player_team_map, current_player_id) do
-    case player_team_map[current_player_id] do
+  defp add_team_color(classes, %Team{id: team_id}, players, current_player_id) do
+    current_player = players |> Enum.find(nil, fn player -> player.id == current_player_id end)
+
+    case current_player.team_id do
       ^team_id ->
         classes
 

@@ -1,62 +1,50 @@
-# defmodule OpticRedWeb.Live.SetupLive do
-#   use OpticRedWeb, :live_component
+defmodule OpticRedWeb.Live.SetupLive do
+  use OpticRedWeb, :live_component
 
-#   alias OpticRed.Game.State
-#   alias OpticRed.Game.Model.Data
+  @default_assigns %{
+    current_player_id: nil,
+    game_state: nil
+  }
 
-#   @default_assigns %{
-#     teams: [],
-#     players: [],
-#     player_team_map: %{},
-#     current_player_id: nil,
-#     game_state: nil
-#   }
+  def mount(socket) do
+    {:ok, assign(socket, @default_assigns)}
+  end
 
-#   def mount(socket) do
-#     {:ok, assign(socket, @default_assigns)}
-#   end
+  def update(assigns, socket) do
+    {:ok, assign(socket, assigns)}
+  end
 
-#   def update(assigns, socket) do
-#     {:ok, assign(socket, assigns)}
-#   end
+  def players_sorted_by_team(assigns) do
+    players = assigns[:players]
+    current_player_id = assigns[:current_player_id]
+    player_team_map = assigns[:player_team_map]
 
-#   def get_current_round(assigns) do
-#     game_state = assigns[:game_state]
+    players
+    |> Enum.sort_by(&(&1.id != current_player_id), &=/2)
+    |> Enum.sort_by(&player_team_map[&1.id], &>=/2)
+  end
 
-#     case game_state do
-#       nil ->
-#         nil
+  def game_startable?(assigns) do
+    %{game_state: %{data: %{players: players}}} = assigns |> IO.inspect(label: "game_startable")
 
-#       %State{data: data} ->
-#         %Data{rounds: rounds} = data
-#         [current_round | _] = rounds
-#         current_round
-#     end
-#   end
+    team_players_map =
+      players
+      |> Enum.group_by(fn player -> player.team_id end, fn player -> player end)
 
-#   def readied?(assigns) do
-#     current_player_id = assigns[:current_player_id]
-#     game_state = assigns[:game_state]
+    has_required_number_of_players =
+      team_players_map
+      |> Enum.all?(fn {_team_id, players} -> length(players) >= 2 end)
 
-#     %State{data: %Data{ready_players: ready_players}} = game_state
+    Enum.count(team_players_map) >= 2 && has_required_number_of_players
+  end
 
-#     ready_players |> Enum.member?(current_player_id)
-#   end
+  def players(assigns) do
+    %{game_state: %{data: %{players: players}}} = assigns
+    players
+  end
 
-#   def readied_players(assigns) do
-#     game_state = assigns[:game_state]
-
-#     %State{data: %Data{ready_players: ready_players}} = game_state
-#     ready_players
-#   end
-
-#   def get_current_team_encipherer_id(assigns) do
-#     current_player_id = assigns[:current_player_id]
-#     player_team_map = assigns[:player_team_map]
-
-#     current_player_team_id = player_team_map[current_player_id]
-
-#     current_round = get_current_round(assigns)
-#     current_round[current_player_team_id].encipherer_player_id
-#   end
-# end
+  def teams(assigns) do
+    %{game_state: %{data: %{teams: teams}}} = assigns
+    teams
+  end
+end
