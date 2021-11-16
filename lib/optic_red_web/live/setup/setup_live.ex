@@ -25,7 +25,7 @@ defmodule OpticRedWeb.Live.SetupLive do
   end
 
   def game_startable?(assigns) do
-    %{game_state: %{data: %{players: players}}} = assigns |> IO.inspect(label: "game_startable")
+    %{game_state: %{data: %{players: players}}} = assigns
 
     team_players_map =
       players

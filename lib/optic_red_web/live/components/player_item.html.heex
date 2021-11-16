@@ -1,5 +1,13 @@
 <% alias OpticRedWeb.Live.Components.PlayerItem %>
 <li class={PlayerItem.get_classes(@player,
     @current_player_id)}>
-  <span><%= @player.name %> <%= if @metadata != nil, do: @metadata.status, else: "" %></span>
-  </li>
+  <span><%= @player.name %>
+    <span>
+      <%= if @metadata != nil do %>
+        <span class="tag is-success"><%=  @metadata.status %></span>
+      <% else %>
+        <span class="tag is-danger">offline</span>
+      <% end %>
+    </span>
+  </span>
+</li>

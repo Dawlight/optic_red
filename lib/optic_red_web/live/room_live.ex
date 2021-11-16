@@ -54,7 +54,7 @@ defmodule OpticRedWeb.Live.RoomLive do
   def handle_info(%{event: "presence_diff"}, socket) do
     %{assigns: %{room_id: room_id}} = socket
 
-    player_metadata = get_player_metadata(room_id) |> IO.inspect(label: "presence_diff")
+    player_metadata = get_player_metadata(room_id)
     {:noreply, socket |> assign(player_metadata: player_metadata)}
   end
 
@@ -66,7 +66,7 @@ defmodule OpticRedWeb.Live.RoomLive do
   def handle_info(event, socket) do
     %{assigns: %{game_state: game_state}} = socket
 
-    new_game_state = State.apply_event(game_state, event |> IO.inspect(label: "Event"))
+    new_game_state = State.apply_event(game_state, event)
     {:noreply, socket |> assign(game_state: new_game_state)}
   end
 
@@ -123,8 +123,7 @@ defmodule OpticRedWeb.Live.RoomLive do
     {:ok, _} = track_presence(current_player_id, room_id)
     history = get_current_history(room_id)
 
-    game_state =
-      State.build_state(history, Setup.new()) |> IO.inspect(label: "Initial game state")
+    game_state = State.build_state(history, Setup.new())
 
     player_metadata = get_player_metadata(room_id)
 
