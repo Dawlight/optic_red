@@ -11,8 +11,8 @@ defmodule OpticRed.SetupEventsTest do
 
   alias OpticRed.Game.State
 
-  alias OpticRed.Game.State.Setup
-  alias OpticRed.Game.State.Preparation
+  alias OpticRed.Game.State.Rules.Setup
+  alias OpticRed.Game.State.Rules.Preparation
 
   alias OpticRed.Game.Action.{
     AddTeam,

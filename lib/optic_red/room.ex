@@ -3,7 +3,7 @@ defmodule OpticRed.Room do
 
   alias Phoenix.PubSub
   alias OpticRed.Game.State
-  alias OpticRed.Game.State.Setup
+  alias OpticRed.Game.State.Rules.Setup
 
   alias OpticRed.Game.ActionResult
 
@@ -11,6 +11,7 @@ defmodule OpticRed.Room do
     AddTeam,
     AddPlayer,
     RemovePlayer,
+    AssignPlayer,
     SetTargetPoints
   }
 
@@ -62,6 +63,13 @@ defmodule OpticRed.Room do
     case :gproc.where(get_room_name(room_id)) do
       :undefined -> {:error, :room_not_found}
       pid -> GenServer.call(pid, {:remove_player, player_id})
+    end
+  end
+
+  def assign_player(room_id, player_id, team_id) do
+    case :gproc.where(get_room_name(room_id)) do
+      :undefined -> {:error, :room_not_found}
+      pid -> GenServer.call(pid, {:assign_player, player_id, team_id})
     end
   end
 
@@ -126,6 +134,15 @@ defmodule OpticRed.Room do
   def handle_call({:remove_player, player_id}, _from, data) do
     {result, data} =
       %RemovePlayer{id: player_id}
+      |> handle_action(data)
+
+    {:reply, {:ok, result}, data}
+  end
+
+  @impl GenServer
+  def handle_call({:assign_player, player_id, team_id}, _from, data) do
+    {result, data} =
+      %AssignPlayer{player_id: player_id, team_id: team_id}
       |> handle_action(data)
 
     {:reply, {:ok, result}, data}

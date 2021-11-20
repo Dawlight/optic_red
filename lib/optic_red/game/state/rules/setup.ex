@@ -1,4 +1,4 @@
-defmodule OpticRed.Game.State.Setup do
+defmodule OpticRed.Game.State.Rules.Setup do
   alias OpticRed.Game.Model.Data
   defstruct data: %Data{}
 
@@ -6,7 +6,7 @@ defmodule OpticRed.Game.State.Setup do
 
   alias OpticRed.Game.Model.{Team, Player, Data}
 
-  alias OpticRed.Game.State.Preparation
+  alias OpticRed.Game.State.Rules.Preparation
 
   alias OpticRed.Game.ActionResult
 
@@ -78,20 +78,96 @@ defmodule OpticRed.Game.State.Setup do
     end
   end
 
-  def handle_action(%__MODULE__{data: data}, %AssignPlayer{player_id: player_id, team_id: team_id}) do
+  def handle_action(%__MODULE__{data: data} = state, %AssignPlayer{} = action) do
+    %AssignPlayer{player_id: player_id, team_id: team_id} = action
+    players = data.players
     player = data |> Data.get_player_by_id(player_id)
     team = data |> Data.get_team_by_id(team_id)
 
-    case {player, team, team_id} do
-      {%Player{} = player, %Team{} = team, _} ->
-        check_player_already_assigned(player, team.id)
+    case will_teams_remain_balanced?(state, action) do
+      false ->
+        ActionResult.empty()
 
-      {%Player{} = player, _, nil} ->
-        check_player_already_assigned(player, team_id)
+      true ->
+        case {player, team, team_id} do
+          {%Player{} = player, %Team{} = team, _} ->
+            check_player_already_assigned(player, team.id)
+
+          {%Player{} = player, _, nil} ->
+            check_player_already_assigned(player, team_id)
+
+          _ ->
+            ActionResult.empty()
+        end
+    end
+  end
+
+  defp will_teams_remain_balanced?(%__MODULE__{data: data}, %AssignPlayer{} = action) do
+    %Data{players: players} = data |> IO.inspect(label: "DATA!")
+
+    %AssignPlayer{
+      player_id: player_id,
+      team_id: team_id
+    } = action
+
+    case team_id do
+      # Always free to leave a team
+      nil ->
+        true
 
       _ ->
-        ActionResult.empty()
+        players_after_join = players |> set_player_team(player_id, team_id)
+
+        %{min: min, max: max} =
+          get_team_count_extremities(players_after_join) |> IO.inspect(label: "MIN MAX")
+
+        case max.count - min.count <= 1 do
+          true ->
+            true
+
+          false ->
+            min.teams |> Enum.member?(team_id)
+        end
     end
+  end
+
+  defp get_team_count_extremities(players) do
+    player_count_by_team_id =
+      players
+      |> Enum.filter(fn player -> player.team_id != nil end)
+      |> Enum.group_by(fn player -> player.team_id end)
+      |> Enum.map(fn {team_id, players} -> {team_id, length(players)} end)
+      |> Map.new()
+
+    {_, max_count} =
+      player_count_by_team_id
+      |> Enum.max_by(fn {_, count} -> count end, fn -> {nil, 0} end)
+
+    {_, min_count} =
+      player_count_by_team_id
+      |> Enum.min_by(fn {_, count} -> count end, fn -> {nil, 0} end)
+
+    min_teams =
+      player_count_by_team_id
+      |> Enum.filter(fn {_, count} -> count == min_count end)
+      |> Enum.map(fn {team_id, _} -> team_id end)
+
+    max_teams =
+      player_count_by_team_id
+      |> Enum.filter(fn {_, count} -> count == max_count end)
+      |> Enum.map(fn {team_id, _} -> team_id end)
+
+    %{min: %{count: min_count, teams: min_teams}, max: %{count: max_count, teams: max_teams}}
+  end
+
+  defp set_player_team(players, player_id, team_id) do
+    players
+    |> Enum.map(fn player ->
+      case player.id do
+        ^player_id -> player |> Player.where(team_id: team_id)
+        _ -> player
+      end
+    end)
   end
 
   def handle_action(%__MODULE__{}, %SetTargetPoints{points: points}) do

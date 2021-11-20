@@ -12,7 +12,7 @@ defmodule OpticRed.DecipherEventsTest do
 
   alias OpticRed.Game.State
 
-  alias OpticRed.Game.State.{
+  alias OpticRed.Game.State.Rules.{
     Decipher,
     RoundEnd,
     GameEnd

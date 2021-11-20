@@ -11,7 +11,7 @@ defmodule OpticRed.SetupActionsTest do
 
   alias OpticRed.Game.State
 
-  alias OpticRed.Game.State.Setup
+  alias OpticRed.Game.State.Rules.Setup
 
   alias OpticRed.Game.Action.{
     AddTeam,
@@ -131,6 +131,46 @@ defmodule OpticRed.SetupActionsTest do
       |> State.handle_action(AssignPlayer.with(player_id: "bob", team_id: "red"))
 
     assert [%PlayerAssignedTeam{player_id: "bob", team_id: "red"}] = action_result.events
+  end
+
+  test "Setup -> AssignPlayer (team full) -> []" do
+    state =
+      Setup.where(
+        data:
+          Data.empty()
+          |> Data.add_team(Team.where(id: "red"))
+          |> Data.add_team(Team.where(id: "blue"))
+          |> Data.add_player(Player.where(id: "bob", team_id: "red"))
+          |> Data.add_player(Player.where(id: "bil", team_id: "blue"))
+          |> Data.add_player(Player.where(id: "sal", team_id: "red"))
+          |> Data.add_player(Player.where(id: "mel"))
+      )
+
+    action_result =
+      state
+      |> State.handle_action(AssignPlayer.with(player_id: "mel", team_id: "red"))
+
+    assert [] = action_result.events
+  end
+
+  test "Setup -> AssignPlayer (leave full team) -> [PlayerAssignedTeam]" do
+    state =
+      Setup.where(
+        data:
+          Data.empty()
+          |> Data.add_team(Team.where(id: "red"))
+          |> Data.add_team(Team.where(id: "blue"))
+          |> Data.add_player(Player.where(id: "bob", team_id: "red"))
+          |> Data.add_player(Player.where(id: "bil", team_id: "blue"))
+          |> Data.add_player(Player.where(id: "sal", team_id: "red"))
+          |> Data.add_player(Player.where(id: "mel", team_id: "red"))
+      )
+
+    action_result =
+      state
+      |> State.handle_action(AssignPlayer.with(player_id: "mel", team_id: nil))
+
+    assert [%PlayerAssignedTeam{player_id: "mel", team_id: nil}] = action_result.events
   end
 
   test "Setup -> AssignPlayer (player doesn't exist) -> [PlayerAssignedTeam]" do

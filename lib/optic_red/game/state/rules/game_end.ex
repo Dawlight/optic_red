@@ -1,4 +1,6 @@
-defmodule OpticRed.Game.State.GameEnd do
+defmodule OpticRed.Game.State.Rules.GameEnd do
+  @moduledoc false
+
   alias OpticRed.Game.Model.Data
   defstruct data: %Data{}, winning_teams: [], losing_teams: []
 

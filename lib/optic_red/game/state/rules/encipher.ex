@@ -1,4 +1,4 @@
-defmodule OpticRed.Game.State.Encipher do
+defmodule OpticRed.Game.State.Rules.Encipher do
   alias OpticRed.Game.Model.Data
   defstruct data: %Data{}
 
@@ -17,7 +17,7 @@ defmodule OpticRed.Game.State.Encipher do
     SubmitClues
   }
 
-  alias OpticRed.Game.State.Decipher
+  alias OpticRed.Game.State.Rules.Decipher
 
   #
   # Action handlers

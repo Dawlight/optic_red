@@ -1,4 +1,4 @@
-defmodule OpticRed.Game.State.Preparation do
+defmodule OpticRed.Game.State.Rules.Preparation do
   alias OpticRed.Game.Model.Data
   defstruct data: %Data{}, ready_players: MapSet.new()
 
@@ -18,7 +18,7 @@ defmodule OpticRed.Game.State.Preparation do
     StartNewRound
   }
 
-  alias OpticRed.Game.State.Encipher
+  alias OpticRed.Game.State.Rules.Encipher
 
   @words ~w{cat tractor house tree love luck money table floor christmas orange}
 

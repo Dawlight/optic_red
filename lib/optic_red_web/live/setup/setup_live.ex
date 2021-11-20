@@ -14,6 +14,36 @@ defmodule OpticRedWeb.Live.SetupLive do
     {:ok, assign(socket, assigns)}
   end
 
+  @impl true
+  def handle_event("join_team", %{"team_id" => team_id}, %{assigns: assigns} = socket) do
+    {:ok, _} = OpticRed.assign_player(assigns.room_id, assigns.current_player_id, team_id)
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("leave_team", _values, %{assigns: assigns} = socket) do
+    :ok = OpticRed.assign_player(assigns.room_id, assigns.current_player_id, nil)
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("start_game", _value, %{assigns: assigns} = socket) do
+    {:ok, _game_state} = OpticRed.create_new_game(assigns.room_id, 2)
+    {:noreply, socket |> assign(loading: true)}
+  end
+
+  @impl true
+  def handle_event("leave_game", _params, %{assigns: assigns} = socket) do
+    :ok = OpticRed.assign_player(assigns.room_id, assigns.current_player_id, nil)
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("next_round", _values, %{assigns: assigns} = socket) do
+    {:ok, _} = OpticRed.new_round(assigns.room_id)
+    {:noreply, socket}
+  end
+
   def players_sorted_by_team(assigns) do
     players = assigns[:players]
     current_player_id = assigns[:current_player_id]

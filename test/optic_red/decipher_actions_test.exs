@@ -12,7 +12,7 @@ defmodule OpticRed.DecipherActionsTest do
 
   alias OpticRed.Game.State
 
-  alias OpticRed.Game.State.Decipher
+  alias OpticRed.Game.State.Rules.Decipher
 
   alias OpticRed.Game.Action.{
     SubmitAttempt

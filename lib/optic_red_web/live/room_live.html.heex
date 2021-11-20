@@ -1,4 +1,4 @@
-<% alias OpticRed.Game.State.Setup %>
+<% alias OpticRed.Game.State.Rules.Setup %>
 <% alias OpticRedWeb.Live.SetupLive %>
 <% alias OpticRedWeb.Live.SetupLive %>
 <% alias OpticRedWeb.Live.EncipherLive %>
@@ -10,6 +10,7 @@
 
 
     state = [
+      room_id: @room_id,
       player_metadata: @player_metadata,
       current_player_id: @current_player_id,
       loading: @loading

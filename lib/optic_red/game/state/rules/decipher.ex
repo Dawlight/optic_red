@@ -1,4 +1,4 @@
-defmodule OpticRed.Game.State.Decipher do
+defmodule OpticRed.Game.State.Rules.Decipher do
   alias OpticRed.Game.Model.Data
 
   defstruct data: %Data{},
@@ -26,7 +26,7 @@ defmodule OpticRed.Game.State.Decipher do
 
   alias OpticRed.Game.Action.{SubmitAttempt}
 
-  alias OpticRed.Game.State.{
+  alias OpticRed.Game.State.Rules.{
     RoundEnd,
     GameEnd
   }

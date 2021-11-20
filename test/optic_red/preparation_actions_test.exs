@@ -11,7 +11,7 @@ defmodule OpticRed.PreparationActionsTest do
 
   alias OpticRed.Game.State
 
-  alias OpticRed.Game.State.Preparation
+  alias OpticRed.Game.State.Rules.Preparation
 
   alias OpticRed.Game.Action.{
     GenerateWords,

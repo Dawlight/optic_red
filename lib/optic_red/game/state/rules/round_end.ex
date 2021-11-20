@@ -1,6 +1,8 @@
-defmodule OpticRed.Game.State.RoundEnd do
+defmodule OpticRed.Game.State.Rules.RoundEnd do
   alias OpticRed.Game.Model.Data
   defstruct data: %Data{}
+
+  use OpticRed.Game.State
 
   alias OpticRed.Game.ActionResult
 
@@ -8,7 +10,7 @@ defmodule OpticRed.Game.State.RoundEnd do
 
   alias OpticRed.Game.Event.NewRoundStarted
 
-  alias OpticRed.Game.State.Encipher
+  alias OpticRed.Game.State.Rules.Encipher
 
   def new(%Data{} = data) do
     %__MODULE__{data: data}

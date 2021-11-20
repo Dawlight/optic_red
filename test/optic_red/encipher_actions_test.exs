@@ -11,7 +11,7 @@ defmodule OpticRed.EncipherActionsTest do
     Round
   }
 
-  alias OpticRed.Game.State.{
+  alias OpticRed.Game.State.Rules.{
     Encipher
   }
 
