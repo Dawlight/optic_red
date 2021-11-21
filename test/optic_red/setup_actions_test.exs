@@ -30,7 +30,9 @@ defmodule OpticRed.SetupActionsTest do
     PlayerRemoved,
     PlayerAssignedTeam,
     TargetPointsSet,
-    GameStarted
+    GameStarted,
+    TeamOpened,
+    TeamClosed
   }
 
   test "Setup -> AddTeam -> [TeamAdded]" do
@@ -126,11 +128,14 @@ defmodule OpticRed.SetupActionsTest do
           |> Data.add_team(Team.where(id: "red"))
       )
 
+    %OpticRed.Game.Event.TeamClosed{team_id: "red"}
+
     action_result =
       state
       |> State.handle_action(AssignPlayer.with(player_id: "bob", team_id: "red"))
 
-    assert [%PlayerAssignedTeam{player_id: "bob", team_id: "red"}] = action_result.events
+    assert [%PlayerAssignedTeam{player_id: "bob", team_id: "red"}, %TeamClosed{team_id: "red"}] =
+             action_result.events
   end
 
   test "Setup -> AssignPlayer (team full) -> []" do
@@ -143,7 +148,8 @@ defmodule OpticRed.SetupActionsTest do
           |> Data.add_player(Player.where(id: "bob", team_id: "red"))
           |> Data.add_player(Player.where(id: "bil", team_id: "blue"))
           |> Data.add_player(Player.where(id: "sal", team_id: "red"))
-          |> Data.add_player(Player.where(id: "mel"))
+          |> Data.add_player(Player.where(id: "mel")),
+        closed_team_ids: MapSet.new(["red"])
       )
 
     action_result =
@@ -160,17 +166,21 @@ defmodule OpticRed.SetupActionsTest do
           Data.empty()
           |> Data.add_team(Team.where(id: "red"))
           |> Data.add_team(Team.where(id: "blue"))
-          |> Data.add_player(Player.where(id: "bob", team_id: "red"))
           |> Data.add_player(Player.where(id: "bil", team_id: "blue"))
           |> Data.add_player(Player.where(id: "sal", team_id: "red"))
-          |> Data.add_player(Player.where(id: "mel", team_id: "red"))
+          |> Data.add_player(Player.where(id: "mel", team_id: "red")),
+        closed_team_ids: MapSet.new(["red"])
       )
 
     action_result =
       state
       |> State.handle_action(AssignPlayer.with(player_id: "mel", team_id: nil))
 
-    assert [%PlayerAssignedTeam{player_id: "mel", team_id: nil}] = action_result.events
+    assert [
+             %PlayerAssignedTeam{player_id: "mel", team_id: nil},
+             %TeamClosed{team_id: "blue"},
+             %TeamOpened{team_id: "red"}
+           ] = action_result.events
   end
 
   test "Setup -> AssignPlayer (player doesn't exist) -> [PlayerAssignedTeam]" do
@@ -216,7 +226,8 @@ defmodule OpticRed.SetupActionsTest do
       state
       |> State.handle_action(AssignPlayer.with(player_id: "bob", team_id: "red"))
 
-    assert [] = action_result.events
+    assert [%PlayerAssignedTeam{player_id: "bob", team_id: "red"}, %TeamClosed{team_id: "red"}] =
+             action_result.events
   end
 
   test "Setup -> AssignPlayer (unassign) -> [PlayerAssignedTeam]" do
